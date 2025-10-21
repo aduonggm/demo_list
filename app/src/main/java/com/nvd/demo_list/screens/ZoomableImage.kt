@@ -37,7 +37,10 @@ fun ZoomableImage(
         ) {
             PdfViewer(
 
-                rawResId = R.raw.test
+                rawResId = R.raw.test,
+                modifier = Modifier
+                    .clickable(onClick = onClick)
+
             )
 
 //            AsyncImage(
