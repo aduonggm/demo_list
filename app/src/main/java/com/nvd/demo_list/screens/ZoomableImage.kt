@@ -35,29 +35,34 @@ fun ZoomableImage(
         Box(
             contentAlignment = Alignment.Center
         ) {
-            AsyncImage(
-                model = imageUrl,
-                contentDescription = "Zoomable Image",
-                contentScale = ContentScale.FillWidth,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .sharedElement(
-                        sharedTransitionScope.rememberSharedContentState(key = imageUrl),
-                        animatedVisibilityScope = animatedContentScope,
-                    )
-                    .clickable(onClick = onClick)
-                    .drawWithContent {
-                        drawContent()
-                        drawRect(Color.Black.copy(alpha = 0.3f))
-                    }
+            PdfViewer(
+
+                rawResId = R.raw.test
             )
 
-            Icon(
-                painterResource(R.drawable.baseline_zoom_in_24),
-                contentDescription = null,
-                modifier = Modifier.size(60.dp),
-                tint = Color.White
-            )
+//            AsyncImage(
+//                model = imageUrl,
+//                contentDescription = "Zoomable Image",
+//                contentScale = ContentScale.FillWidth,
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .sharedElement(
+//                        sharedTransitionScope.rememberSharedContentState(key = imageUrl),
+//                        animatedVisibilityScope = animatedContentScope,
+//                    )
+//                    .clickable(onClick = onClick)
+//                    .drawWithContent {
+//                        drawContent()
+//                        drawRect(Color.Black.copy(alpha = 0.3f))
+//                    }
+//            )
+//
+//            Icon(
+//                painterResource(R.drawable.baseline_zoom_in_24),
+//                contentDescription = null,
+//                modifier = Modifier.size(60.dp),
+//                tint = Color.White
+//            )
         }
     }
 }

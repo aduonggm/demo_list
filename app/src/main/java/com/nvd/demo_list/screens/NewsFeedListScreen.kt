@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeGesturesPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Lock
@@ -45,16 +48,22 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.nvd.demo_list.models.NewsFeedData
@@ -76,38 +85,40 @@ fun NewsFeedListScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            "News Feed",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 24.sp
-                        )
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color(0xFF1877F2), // Facebook blue
-                        titleContentColor = Color.White
-                    ),
-                    actions = {
-                        IconButton(onClick = { /* Search action */ }) {
-                            Icon(
-                                Icons.Default.Search,
-                                contentDescription = "Search",
-                                tint = Color.White
-                            )
-                        }
-                        IconButton(onClick = { /* Notifications action */ }) {
-                            Icon(
-                                Icons.Default.Notifications,
-                                contentDescription = "Notifications",
-                                tint = Color.White
-                            )
-                        }
-                    }
-                )
-            }
+//            topBar = {
+//                TopAppBar(
+//                    title = {
+//                        Text(
+//                            "News Feed",
+//                            fontWeight = FontWeight.Bold,
+//                            fontSize = 24.sp
+//                        )
+//                    },
+//                    colors = TopAppBarDefaults.topAppBarColors(
+//                        containerColor = Color(0xFF1877F2), // Facebook blue
+//                        titleContentColor = Color.White
+//                    ),
+//                    actions = {
+//                        IconButton(onClick = { /* Search action */ }) {
+//                            Icon(
+//                                Icons.Default.Search,
+//                                contentDescription = "Search",
+//                                tint = Color.White
+//                            )
+//                        }
+//                        IconButton(onClick = { /* Notifications action */ }) {
+//                            Icon(
+//                                Icons.Default.Notifications,
+//                                contentDescription = "Notifications",
+//                                tint = Color.White
+//                            )
+//                        }
+//                    }
+//                )
+//            }
         ) { paddingValues ->
+
+            var isZoom by remember { mutableStateOf(false) }
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -129,6 +140,9 @@ fun NewsFeedListScreen(
                         animatedContentScope = animatedContentScope,
                         onClick = {
                             openDetail(index)
+                        },
+                        isZoom = {
+                            isZoom = it
                         }
                     )
                 }
@@ -137,6 +151,25 @@ fun NewsFeedListScreen(
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                 }
+            }
+
+            if (isZoom) {
+                IconButton({}) {
+                    Icon(
+                        Icons.Default.Clear,
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier
+                            .statusBarsPadding()
+                            .padding(30.dp)
+                    )
+                }
+//                Box(
+//                    modifier = Modifier
+//                        .zIndex(0f)
+//                        .fillMaxSize()
+//                        .background(color = Color.Black)
+//                )
             }
         }
     }
@@ -242,46 +275,36 @@ fun CreatePostAction(
 @Composable
 fun NewsFeedCard(
     item: NewsFeedItem,
-
     sharedTransitionScope: SharedTransitionScope,
     animatedContentScope: AnimatedContentScope,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    isZoom: (Boolean) -> Unit
 
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 0.dp, vertical = 0.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = RoundedCornerShape(0.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            // Post Header
-            PostHeader(item)
 
-            // Post Content
-            PostContent(item)
+    // Post Header
+    PostHeader(item)
 
-            item.postImage?.let {
-                ZoomableImage(
-                    imageUrl = item.postImage,
-                    sharedTransitionScope = sharedTransitionScope,
-                    animatedContentScope = animatedContentScope,
-                    onClick = onClick
-                )
-            }
-            // Reactions and Stats
-            ReactionsAndStats(item)
+    // Post Content
+    PostContent(item)
 
-            Divider(modifier = Modifier.padding(horizontal = 12.dp))
+    item.postImage?.let {
+        ZoomableImage(
+            imageUrl = item.postImage,
+            sharedTransitionScope = sharedTransitionScope,
+            animatedContentScope = animatedContentScope,
+            onClick = onClick,
 
-            // Action Buttons
-            ActionButtons(item)
-        }
+        )
     }
+    // Reactions and Stats
+    ReactionsAndStats(item)
+
+    Divider(modifier = Modifier.padding(horizontal = 12.dp))
+
+    // Action Buttons
+    ActionButtons(item)
+
 }
 
 @Composable

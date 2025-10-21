@@ -13,6 +13,7 @@ buildscript {
         mavenCentral()
         gradlePluginPortal()
         maven("https://repo.grails.org/grails/core/")
+        maven("https://jitpack.io")
 
     }
     dependencies {
