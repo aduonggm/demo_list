@@ -11,6 +11,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        R.drawable.ic_launcher_background
         setContent {
             Demo_listTheme {
                 AppNavigation()

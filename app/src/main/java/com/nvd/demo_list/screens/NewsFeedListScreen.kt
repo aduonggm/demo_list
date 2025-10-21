@@ -1,12 +1,13 @@
 package com.nvd.demo_list.screens
 
-import android.net.Uri
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,24 +20,32 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,187 +59,463 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.nvd.demo_list.models.NewsFeedData
 import com.nvd.demo_list.models.NewsFeedItem
-import com.nvd.demo_list.navigation.Screen
+import com.nvd.demo_list.models.PostPrivacy
+import com.nvd.demo_list.models.ReactionType
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
+
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun NewsFeedListScreen(
     navController: NavController,
     sharedTransitionScope: SharedTransitionScope,
-    animatedContentScope: AnimatedContentScope
+    animatedContentScope: AnimatedContentScope,
+    openDetail: (index: Int) -> Unit
 ) {
     val newsFeedItems = remember { NewsFeedData.getSampleData() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "News Feed",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            "News Feed",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 24.sp
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color(0xFF1877F2), // Facebook blue
+                        titleContentColor = Color.White
+                    ),
+                    actions = {
+                        IconButton(onClick = { /* Search action */ }) {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = Color.White
+                            )
+                        }
+                        IconButton(onClick = { /* Notifications action */ }) {
+                            Icon(
+                                Icons.Default.Notifications,
+                                contentDescription = "Notifications",
+                                tint = Color.White
+                            )
+                        }
+                    }
+                )
+            }
+        ) { paddingValues ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFF0F2F5)) // Facebook background color
+                    .padding(paddingValues),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Add post creation card
+                item {
+                    CreatePostCard()
+                }
+
+                // News feed items
+                items(newsFeedItems.size) { index ->
+                    val item = newsFeedItems[index]
+                    NewsFeedCard(
+                        item = item,
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedContentScope = animatedContentScope,
+                        onClick = {
+                            openDetail(index)
+                        }
                     )
                 }
-            )
+
+                // Bottom spacing
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
         }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    }
+}
+
+@Composable
+fun CreatePostCard() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 0.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp)
         ) {
-            items(newsFeedItems) { item ->
-                NewsFeedItemCard(
-                    item = item,
-                    onImageClick = {
-                        val encodedUrl = Uri.encode(item.postImage)
-                        navController.navigate(Screen.ImageDetail.createRoute(item.id, encodedUrl))
-                    },
-                    sharedTransitionScope = sharedTransitionScope,
-                    animatedContentScope = animatedContentScope
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // User avatar placeholder
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.LightGray)
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // "What's on your mind?" text
+                Text(
+                    text = "Bạn đang nghĩ gì?",
+                    color = Color.Gray,
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(Color(0xFFF0F2F5), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Divider()
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                CreatePostAction(
+                    icon = Icons.Default.PlayArrow,
+                    text = "Video",
+                    tint = Color(0xFFE42645)
+                )
+                CreatePostAction(
+                    icon = Icons.Default.Add,
+                    text = "Ảnh/Video",
+                    tint = Color(0xFF45BD62)
+                )
+                CreatePostAction(
+                    icon = Icons.Default.Face,
+                    text = "Cảm xúc",
+                    tint = Color(0xFFF7B928)
                 )
             }
         }
     }
 }
 
+@Composable
+fun CreatePostAction(
+    icon: ImageVector,
+    text: String,
+    tint: Color
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clickable { /* Handle action */ }
+            .padding(8.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = text,
+            tint = tint,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = text,
+            fontSize = 14.sp,
+            color = Color.DarkGray,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun NewsFeedItemCard(
+fun NewsFeedCard(
     item: NewsFeedItem,
-    onImageClick: () -> Unit,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedContentScope: AnimatedContentScope
-) {
-    var isLiked by remember { mutableStateOf(false) }
-    var likeCount by remember { mutableStateOf(item.likeCount) }
 
+    sharedTransitionScope: SharedTransitionScope,
+    animatedContentScope: AnimatedContentScope,
+    onClick: () -> Unit
+
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 0.dp, vertical = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            .padding(horizontal = 0.dp, vertical = 0.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(0.dp)
     ) {
-        Column {
-            // Header with user info
+        Column(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Post Header
+            PostHeader(item)
+
+            // Post Content
+            PostContent(item)
+
+            item.postImage?.let {
+                ZoomableImage(
+                    imageUrl = item.postImage,
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedContentScope = animatedContentScope,
+                    onClick = onClick
+                )
+            }
+            // Reactions and Stats
+            ReactionsAndStats(item)
+
+            Divider(modifier = Modifier.padding(horizontal = 12.dp))
+
+            // Action Buttons
+            ActionButtons(item)
+        }
+    }
+}
+
+@Composable
+fun PostHeader(item: NewsFeedItem) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        // User Avatar
+        Image(
+            painter = rememberAsyncImagePainter(item.userAvatar),
+            contentDescription = "User Avatar",
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape),
+            contentScale = ContentScale.Crop
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        // User Info
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Image(
-                    painter = rememberAsyncImagePainter(item.userAvatar),
-                    contentDescription = "User avatar",
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
+                Text(
+                    text = item.userName,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
                 )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column {
+                if (item.isSponsored) {
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = item.userName,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    )
-                    Text(
-                        text = item.postTime,
-                        fontSize = 12.sp,
+                        text = "• Tài trợ",
+                        fontSize = 13.sp,
                         color = Color.Gray
                     )
                 }
             }
 
-            // Post text
-            if (item.postText.isNotEmpty()) {
-                Text(
-                    text = item.postText,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    fontSize = 14.sp
-                )
-            }
-
-            // Post image with shared transition
-            with(sharedTransitionScope) {
-                Image(
-                    painter = rememberAsyncImagePainter(item.postImage),
-                    contentDescription = "Post image",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp)
-                        .clickable { onImageClick() }
-                        .sharedElement(
-                            animatedVisibilityScope = animatedContentScope,
-                            sharedContentState = rememberSharedContentState(key = "image-${item.id}"),
-                        ),
-                    contentScale = ContentScale.Crop
-                )
-            }
-
-            // Stats row
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "$likeCount lượt thích",
+                    text = item.postTime,
                     fontSize = 13.sp,
                     color = Color.Gray
                 )
-                Text(
-                    text = "${item.commentCount} bình luận • ${item.shareCount} chia sẻ",
-                    fontSize = 13.sp,
-                    color = Color.Gray
-                )
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 12.dp),
-                thickness = 0.5.dp,
-                color = Color.LightGray
-            )
-
-            // Action buttons
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                ActionButton(
-                    icon = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    text = "Thích",
-                    tint = if (isLiked) Color(0xFFE91E63) else Color.Gray,
-                    onClick = {
-                        isLiked = !isLiked
-                        likeCount = if (isLiked) likeCount + 1 else likeCount - 1
-                    }
-                )
-
-                ActionButton(
-                    icon = Icons.Default.Favorite,
-                    text = "Bình luận",
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(text = "•", fontSize = 13.sp, color = Color.Gray)
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = when (item.privacy) {
+                        PostPrivacy.PUBLIC -> Icons.Default.Place
+                        PostPrivacy.FRIENDS -> Icons.Default.Person
+                        PostPrivacy.ONLY_ME -> Icons.Default.Lock
+                    },
+                    contentDescription = "Privacy",
                     tint = Color.Gray,
-                    onClick = { /* Handle comment */ }
+                    modifier = Modifier.size(14.dp)
                 )
 
-                ActionButton(
-                    icon = Icons.Default.Share,
-                    text = "Chia sẻ",
-                    tint = Color.Gray,
-                    onClick = { /* Handle share */ }
-                )
+                if (item.location != null) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "•", fontSize = 13.sp, color = Color.Gray)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.Place,
+                        contentDescription = "Location",
+                        tint = Color.Gray,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = item.location,
+                        fontSize = 13.sp,
+                        color = Color.Gray
+                    )
+                }
             }
         }
+
+        // More Options
+        IconButton(onClick = { /* Show options */ }) {
+            Icon(
+                Icons.Default.MoreVert,
+                contentDescription = "More options",
+                tint = Color.Gray
+            )
+        }
+    }
+}
+
+@Composable
+fun PostContent(item: NewsFeedItem) {
+    if (item.postText.isNotEmpty()) {
+        Text(
+            text = item.postText,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            fontSize = 15.sp,
+            lineHeight = 20.sp
+        )
+    }
+}
+
+
+@Composable
+fun ReactionsAndStats(item: NewsFeedItem) {
+    val totalReactions = item.reactions.getTotalCount()
+
+    if (totalReactions > 0 || item.commentCount > 0 || item.shareCount > 0) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Reactions
+            if (totalReactions > 0) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Show top reactions icons
+                    val topReactions = item.reactions.getTopReactions()
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy((-4).dp)
+                    ) {
+                        topReactions.forEach { reaction ->
+                            ReactionIcon(reaction)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    Text(
+                        text = totalReactions.toString(),
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.width(1.dp))
+            }
+
+            // Comments and Shares
+            Row {
+                if (item.commentCount > 0) {
+                    Text(
+                        text = "${item.commentCount} bình luận",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                if (item.commentCount > 0 && item.shareCount > 0) {
+                    Text(
+                        text = " • ",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                if (item.shareCount > 0) {
+                    Text(
+                        text = "${item.shareCount} lượt chia sẻ",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ReactionIcon(reaction: ReactionType) {
+    val emoji = when (reaction) {
+        ReactionType.LIKE -> "👍"
+        ReactionType.LOVE -> "❤️"
+        ReactionType.HAHA -> "😂"
+        ReactionType.WOW -> "😮"
+        ReactionType.SAD -> "😢"
+        ReactionType.ANGRY -> "😠"
+    }
+
+    val backgroundColor = when (reaction) {
+        ReactionType.LIKE -> Color(0xFF1877F2)
+        ReactionType.LOVE -> Color(0xFFE92947)
+        ReactionType.HAHA -> Color(0xFFF7B928)
+        ReactionType.WOW -> Color(0xFFF7B928)
+        ReactionType.SAD -> Color(0xFFF7B928)
+        ReactionType.ANGRY -> Color(0xFFE9703A)
+    }
+
+    Box(
+        modifier = Modifier
+            .size(20.dp)
+            .background(backgroundColor, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = emoji,
+            fontSize = 12.sp
+        )
+    }
+}
+
+@Composable
+fun ActionButtons(item: NewsFeedItem) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        ActionButton(
+            icon = Icons.Default.ThumbUp,
+            text = "Thích",
+            onClick = { /* Handle like */ }
+        )
+        ActionButton(
+            icon = Icons.Default.Edit,
+            text = "Bình luận",
+            onClick = { /* Handle comment */ }
+        )
+        ActionButton(
+            icon = Icons.Default.Share,
+            text = "Chia sẻ",
+            onClick = { /* Handle share */ }
+        )
     }
 }
 
@@ -238,26 +523,25 @@ fun NewsFeedItemCard(
 fun ActionButton(
     icon: ImageVector,
     text: String,
-    tint: Color,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .clickable(onClick = onClick)
-            .padding(8.dp),
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = text,
-            tint = tint,
+            tint = Color.Gray,
             modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = text,
             fontSize = 14.sp,
-            color = tint,
+            color = Color.Gray,
             fontWeight = FontWeight.Medium
         )
     }
