@@ -17,10 +17,12 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven("https://jitpack.io")
+        maven("https://repo.grails.org/grails/core/")
+
 
     }
 }
 
 rootProject.name = "demo_list"
 include(":app")
- 
+//include(":android-pdf-viewer")
