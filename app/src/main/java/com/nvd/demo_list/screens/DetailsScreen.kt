@@ -66,6 +66,8 @@ fun DetailsScreen(
                 },
             contentAlignment = Alignment.Center
         ) {
+
+
             AsyncImage(
                 model = image,
                 contentDescription = "Zoomed Image",
@@ -97,6 +99,23 @@ fun DetailsScreen(
                     )
                     .background(color = Color.Red)
             )
+
+
+            IconButton(
+                onBackPressed,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .safeGesturesPadding()
+                    .padding(16.dp)
+                    .background(color = Color.White.copy(alpha = 0.2f), shape = CircleShape)
+
+            ) {
+                Icon(
+                    Icons.Default.Clear, contentDescription = null,
+                    tint = Color.White
+                )
+            }
+
         }
     }
 }
