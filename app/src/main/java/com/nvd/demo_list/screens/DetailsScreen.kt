@@ -24,13 +24,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.round
 import coil.compose.AsyncImage
 import com.nvd.demo_list.models.NewsFeedData
 import nl.birdly.zoombox.ZoomState
@@ -54,7 +59,7 @@ fun DetailsScreen(
     val image by remember(newsFeedItems) { mutableStateOf(newsFeedItems[index].postImage ?: "") }
     Log.d("=======>>>>>>> ", "DetailsScreen:  $image")
     println("image detail is  $image")
-
+    var itemOffset by remember { mutableStateOf(IntOffset.Zero) }
     with(sharedTransitionScope) {
         Box(
             Modifier
@@ -74,47 +79,19 @@ fun DetailsScreen(
                 contentScale = ContentScale.FillWidth,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .sharedElement(
-                        sharedTransitionScope.rememberSharedContentState(key = image),
-                        animatedVisibilityScope = animatedContentScope
-                    )
-                    .zoomable(
+                    .onGloballyPositioned { layoutCoordinates ->
+                        // Lấy tọa độ tương đối với toàn màn hình
+                        val position = layoutCoordinates
+                            .localToWindow(Offset.Zero)
+                            .round()
+                        itemOffset = IntOffset(position.x, position.y)
 
-                        zoomState = zoomState,
-                        zoomRange = 1f..4f,
-                        transformGestureHandler = TransformGestureHandler(
-
-                            onCondition = object : TouchCondition {
-                                override fun invoke(
-                                    zoomStateProvider: () -> ZoomState,
-                                    pointerInputScope: PointerInputScope,
-                                    pointerEvent: PointerEvent
-                                ): Boolean {
-                                    return pointerEvent.changes.size > 1 || zoomStateProvider.invoke().scale > 1f
-                                }
-
-                            }
-                        )
-
-                    )
-                    .background(color = Color.Red)
+                    } .clickable {
+                        Log.d("ItemClick", "Item click tại: $itemOffset")
+                        // bạn có thể gọi callback truyền ra ngoài ở đây
+                    }
             )
 
-
-            IconButton(
-                onBackPressed,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .safeGesturesPadding()
-                    .padding(16.dp)
-                    .background(color = Color.White.copy(alpha = 0.2f), shape = CircleShape)
-
-            ) {
-                Icon(
-                    Icons.Default.Clear, contentDescription = null,
-                    tint = Color.White
-                )
-            }
 
         }
     }

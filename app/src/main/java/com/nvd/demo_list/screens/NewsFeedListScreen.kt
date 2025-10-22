@@ -1,26 +1,47 @@
 package com.nvd.demo_list.screens
 
+import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.EaseInOut
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.Spring.DampingRatioLowBouncy
+import androidx.compose.animation.core.Spring.DampingRatioNoBouncy
+import androidx.compose.animation.core.Spring.StiffnessLow
+import androidx.compose.animation.core.animateIntOffsetAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeGesturesPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -48,30 +69,48 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.nvd.demo_list.models.NewsFeedData
 import com.nvd.demo_list.models.NewsFeedItem
 import com.nvd.demo_list.models.PostPrivacy
 import com.nvd.demo_list.models.ReactionType
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import nl.birdly.zoombox.zoomable
+import kotlin.math.log
+import kotlin.math.roundToInt
 
+data class ItemSelected(
+    val image: String? = null,
+    val offset: IntOffset = IntOffset.Zero,
+    val itemHeight: Int = 1
+)
 
+@SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun NewsFeedListScreen(
@@ -81,49 +120,32 @@ fun NewsFeedListScreen(
     openDetail: (index: Int) -> Unit
 ) {
     val newsFeedItems = remember { NewsFeedData.getSampleData() }
+    val listState = rememberLazyListState()
 
+    var itemFound by remember { mutableStateOf(ItemSelected(null, IntOffset.Zero)) }
 
+    var showImage by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val config = LocalConfiguration.current
+    val screenHeightPx = with(density) { config.screenHeightDp.dp.toPx() }
+    val screenWidthPx = with(density) { config.screenWidthDp.dp.toPx() }
+
+    val insets = WindowInsets
+    val statusBarHeight = insets.statusBars.getTop(LocalDensity.current)
+    val navBarHeight = insets.navigationBars.getBottom(LocalDensity.current)
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-//            topBar = {
-//                TopAppBar(
-//                    title = {
-//                        Text(
-//                            "News Feed",
-//                            fontWeight = FontWeight.Bold,
-//                            fontSize = 24.sp
-//                        )
-//                    },
-//                    colors = TopAppBarDefaults.topAppBarColors(
-//                        containerColor = Color(0xFF1877F2), // Facebook blue
-//                        titleContentColor = Color.White
-//                    ),
-//                    actions = {
-//                        IconButton(onClick = { /* Search action */ }) {
-//                            Icon(
-//                                Icons.Default.Search,
-//                                contentDescription = "Search",
-//                                tint = Color.White
-//                            )
-//                        }
-//                        IconButton(onClick = { /* Notifications action */ }) {
-//                            Icon(
-//                                Icons.Default.Notifications,
-//                                contentDescription = "Notifications",
-//                                tint = Color.White
-//                            )
-//                        }
-//                    }
-//                )
-//            }
         ) { paddingValues ->
 
             var isZoom by remember { mutableStateOf(false) }
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
+
                     .background(Color(0xFFF0F2F5)) // Facebook background color
-                    .padding(paddingValues),
+                ,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Add post creation card
@@ -136,14 +158,31 @@ fun NewsFeedListScreen(
                     val item = newsFeedItems[index]
                     NewsFeedCard(
                         item = item,
+                        isVisible = itemFound.image != item.postImage,
                         sharedTransitionScope = sharedTransitionScope,
                         animatedContentScope = animatedContentScope,
                         onClick = {
-                            openDetail(index)
+                            itemFound = it
+                            coroutineScope.launch {
+                                val layoutInfo = listState.layoutInfo
+                                val viewportCenter =
+                                    (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+                                Log.d(
+                                    "======>>>>>>>>> ",
+                                    "NewsFeedListScreen: view port center  $viewportCenter    ${(layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset)}"
+                                )
+                                val itemCenter = it.offset.y + it.itemHeight / 2
+                                val diff = itemCenter - viewportCenter
+                                listState.animateScrollBy(
+                                    diff.toFloat(),
+                                    animationSpec = tween(
+                                        durationMillis = 500,
+                                        delayMillis = 0,
+                                        easing = EaseInOut
+                                    )
+                                )
+                            }
                         },
-                        isZoom = {
-                            isZoom = it
-                        }
                     )
                 }
 
@@ -164,12 +203,78 @@ fun NewsFeedListScreen(
                             .padding(30.dp)
                     )
                 }
-//                Box(
-//                    modifier = Modifier
-//                        .zIndex(0f)
-//                        .fillMaxSize()
-//                        .background(color = Color.Black)
-//                )
+            }
+        }
+
+
+        AnimatedVisibility(
+            !itemFound.image.isNullOrEmpty(),
+            enter = fadeIn(animationSpec = tween(durationMillis = 500)),
+            exit = fadeOut()
+        ) {
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(color = Color.Black.copy(alpha = 0.6f))
+                    .clickable {},
+            ) {
+
+            }
+        }
+
+
+        if (!itemFound.image.isNullOrEmpty()) {
+            var moved by remember { mutableStateOf(false) }
+            val offset by animateIntOffsetAsState(
+                targetValue = if (moved) {
+                    IntOffset(
+                        0,
+                        ((screenHeightPx + navBarHeight + statusBarHeight - itemFound.itemHeight) / 2).toInt()
+                    )
+                } else {
+                    itemFound.offset
+                },
+                label = "offset",
+
+                animationSpec = tween(durationMillis = 500, easing = EaseInOut)
+            )
+
+            LaunchedEffect(Unit) {
+                moved = true
+            }
+
+
+            AsyncImage(
+                itemFound.image,
+                contentDescription = "Page ${0 + 1}",
+                contentScale = ContentScale.FillWidth,
+                modifier = Modifier
+                    .offset { offset }
+                    .fillMaxWidth()
+                    .zoomable(zoomRange = 1f..3f)
+                    .clickable {
+                        itemFound = ItemSelected()
+                    }
+            )
+
+            IconButton(
+                {
+                    itemFound = ItemSelected()
+
+                }, modifier = Modifier
+                    .safeGesturesPadding()
+                    .padding(8.dp)
+                    .background(color = Color.Gray.copy(alpha = 0.5f), shape = CircleShape)
+                    .zIndex(100f)
+            ) {
+
+                Icon(
+                    Icons.Default.Clear,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.padding(4.dp)
+                )
             }
         }
     }
@@ -277,33 +382,36 @@ fun NewsFeedCard(
     item: NewsFeedItem,
     sharedTransitionScope: SharedTransitionScope,
     animatedContentScope: AnimatedContentScope,
-    onClick: () -> Unit,
-    isZoom: (Boolean) -> Unit
+    onClick: (ItemSelected) -> Unit,
+    isVisible: Boolean = true
 
 ) {
+    Column {
 
-    // Post Header
-    PostHeader(item)
 
-    // Post Content
-    PostContent(item)
+        // Post Header
+        PostHeader(item)
 
-    item.postImage?.let {
-        ZoomableImage(
-            imageUrl = item.postImage,
-            sharedTransitionScope = sharedTransitionScope,
-            animatedContentScope = animatedContentScope,
-            onClick = onClick,
+        // Post Content
+        PostContent(item)
 
-        )
+        item.postImage?.let {
+            ZoomableImage(
+                imageUrl = item.postImage,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedContentScope = animatedContentScope,
+                onClick = onClick,
+                isVisible = isVisible
+            )
+        }
+        // Reactions and Stats
+        ReactionsAndStats(item)
+
+        Divider(modifier = Modifier.padding(horizontal = 12.dp))
+
+        // Action Buttons
+        ActionButtons(item)
     }
-    // Reactions and Stats
-    ReactionsAndStats(item)
-
-    Divider(modifier = Modifier.padding(horizontal = 12.dp))
-
-    // Action Buttons
-    ActionButtons(item)
 
 }
 
