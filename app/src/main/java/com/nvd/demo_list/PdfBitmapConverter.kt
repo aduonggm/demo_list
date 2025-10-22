@@ -27,7 +27,7 @@ class PdfBitmapConverter(private val context: Context) {
                     canvas.drawColor(Color.WHITE)
                     page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
 
-                    val file = File(context.cacheDir, "pdf_page_$i.png")
+                    val file = File(context.cacheDir, "${System.currentTimeMillis()}pdf_page_$i.png")
                     FileOutputStream(file).use { out ->
                         bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
                     }
@@ -49,7 +49,7 @@ class PdfBitmapConverter(private val context: Context) {
     }
 
     suspend fun pdfFromRaw(@RawRes rawResId: Int): List<File> {
-        val file = File(context.cacheDir, "${rawResId}.pdf")
+        val file = File(context.cacheDir, "${System.currentTimeMillis()}_${rawResId}.pdf")
         context.resources.openRawResource(rawResId).use { it.copyTo(FileOutputStream(file)) }
         return pdfToImageFiles(file.toUri())
     }

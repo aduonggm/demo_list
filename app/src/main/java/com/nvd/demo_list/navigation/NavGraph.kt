@@ -10,10 +10,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.nvd.demo_list.screens.DetailsScreen
+import com.nvd.demo_list.screens.MainScreen
 import com.nvd.demo_list.screens.NewsFeedListScreen
+import com.nvd.demo_list.screens.Option2Screen
 
 sealed class Screen(val route: String) {
     object NewsFeedList : Screen("news_feed_list")
+    object Option2 : Screen("option_2")
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -24,7 +27,7 @@ fun AppNavigation() {
     SharedTransitionLayout {
         NavHost(
             navController = navController,
-            startDestination = Screen.NewsFeedList.route
+            startDestination = "splash"
         ) {
             composable(Screen.NewsFeedList.route) {
                 NewsFeedListScreen(
@@ -36,6 +39,19 @@ fun AppNavigation() {
                     }
                 )
             }
+
+            composable("splash"){
+                MainScreen {
+                    navController.navigate(it)
+                }
+            }
+
+
+            composable(Screen.Option2.route){
+                Option2Screen()
+            }
+
+
 
             composable(
                 "details/{item}",

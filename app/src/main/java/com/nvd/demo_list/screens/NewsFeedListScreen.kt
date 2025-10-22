@@ -285,7 +285,8 @@ fun CreatePostCard() {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 0.dp, vertical = 4.dp),
+            .padding(horizontal = 0.dp, vertical = 4.dp)
+            .statusBarsPadding(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {

@@ -1,31 +1,29 @@
 package com.nvd.demo_list.screens
 
-import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
 import androidx.annotation.RawRes
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import coil.compose.AsyncImage
-import coil.compose.rememberAsyncImagePainter
 import com.nvd.demo_list.PdfBitmapConverter
-import com.rizzi.bouquet.ResourceType
-import com.rizzi.bouquet.VerticalPDFReader
-import com.rizzi.bouquet.rememberVerticalPdfReaderState
-import kotlinx.coroutines.launch
 import java.io.File
-import com.nvd.demo_list.R
+
 @Composable
 fun PdfViewer(
     modifier: Modifier = Modifier,
@@ -33,53 +31,42 @@ fun PdfViewer(
     @RawRes rawResId: Int? = null,
     uri: Uri? = null
 ) {
-    val pdf = rememberVerticalPdfReaderState(
-        resource = ResourceType.Asset(R.raw.new_test),
-        isZoomEnable = false,
-    )
 
-    VerticalPDFReader(
-        pdf,
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(1f)
-    )
 
-//    val context = LocalContext.current
-//    var imageFiles by remember { mutableStateOf<List<File>>(emptyList()) }
-//    var loading by remember { mutableStateOf(true) }
-//
-//    LaunchedEffect(assetName, rawResId, uri) {
-//        val converter = PdfBitmapConverter(context)
-//        imageFiles = when {
-//            assetName != null -> converter.pdfFromAssets(assetName)
-//            rawResId != null -> converter.pdfFromRaw(rawResId)
-//            uri != null -> converter.pdfToImageFiles(uri)
-//            else -> emptyList()
-//        }
-//        loading = false
-//    }
-//
-//    Log.d(
-//        "========>>>>>>>> ",
-//        "PdfViewer: file found  ${imageFiles.map { " ${it.length()} ${it.path}" }}"
-//    )
-//    if (loading) {
-//        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-//            CircularProgressIndicator()
-//        }
-//    } else {
-//        val file = imageFiles.getOrNull(0)
-//        file?.let {
-//            AsyncImage(
-//                file,
-//                contentDescription = "Page ${0 + 1}",
-//                contentScale = ContentScale.FillWidth,
-//                modifier = modifier
-//                    .fillMaxWidth()
-//                    .aspectRatio(1f)
-//                    .padding(8.dp)
-//            )
-//        }
-//    }
+    val context = LocalContext.current
+    var imageFiles by remember { mutableStateOf<List<File>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(assetName, rawResId, uri) {
+        val converter = PdfBitmapConverter(context)
+        imageFiles = when {
+            assetName != null -> converter.pdfFromAssets(assetName)
+            rawResId != null -> converter.pdfFromRaw(rawResId)
+            uri != null -> converter.pdfToImageFiles(uri)
+            else -> emptyList()
+        }
+        loading = false
+    }
+
+    Log.d(
+        "========>>>>>>>> ",
+        "PdfViewer: file found  ${imageFiles.map { " ${it.length()} ${it.path}" }}"
+    )
+    if (loading) {
+        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else {
+        val file = imageFiles.getOrNull(0)
+        file?.let {
+            AsyncImage(
+                file,
+                contentDescription = "Page ${0 + 1}",
+                contentScale = ContentScale.FillWidth,
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            )
+        }
+    }
 }

@@ -53,34 +53,28 @@ fun ZoomableImage(
     val statusBarHeight = WindowInsets.statusBars.getTop(density)
     var heightItem = remember { 0 }
 
-    with(sharedTransitionScope) {
-        AsyncImage(
-            imageUrl,
-            contentDescription = "Page ${0 + 1}",
-            contentScale = ContentScale.FillWidth,
-            modifier = Modifier
-                .fillMaxWidth()
-                .sharedElement(
-                    sharedContentState = sharedTransitionScope.rememberSharedContentState(key = imageUrl),
-                    animatedVisibilityScope = animatedContentScope
-                )
-                .alpha(if (isVisible) 1f else 0f)
-                .onGloballyPositioned { layoutCoordinates ->
-                    val windowPos = layoutCoordinates.localToRoot(Offset.Zero).round()
-                    heightItem = layoutCoordinates.size.height // px
-                    itemOffset = IntOffset(windowPos.x, windowPos.y)
-                }
-                .clickable {
+    AsyncImage(
+        imageUrl,
+        contentDescription = "Page ${0 + 1}",
+        contentScale = ContentScale.FillWidth,
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(if (isVisible) 1f else 0f)
+            .onGloballyPositioned { layoutCoordinates ->
+                val windowPos = layoutCoordinates.localToRoot(Offset.Zero).round()
+                heightItem = layoutCoordinates.size.height // px
+                itemOffset = IntOffset(windowPos.x, windowPos.y)
+            }
+            .clickable {
 
-                    Log.d(
-                        "ItemClick",
-                        "  ${statusBarHeight} Item click tại: $itemOffset  $heightItem"
-                    )
-                    // bạn có thể gọi callback truyền ra ngoài ở đây
-                    onClick(ItemSelected(imageUrl, itemOffset, heightItem))
-                }
-        )
-    }
+                Log.d(
+                    "ItemClick",
+                    "  ${statusBarHeight} Item click tại: $itemOffset  $heightItem"
+                )
+                // bạn có thể gọi callback truyền ra ngoài ở đây
+                onClick(ItemSelected(imageUrl, itemOffset, heightItem))
+            }
+    )
 
 
 }
