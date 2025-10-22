@@ -20,9 +20,12 @@ import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.nvd.demo_list.PdfBitmapConverter
+import com.rizzi.bouquet.ResourceType
+import com.rizzi.bouquet.VerticalPDFReader
+import com.rizzi.bouquet.rememberVerticalPdfReaderState
 import kotlinx.coroutines.launch
 import java.io.File
-
+import com.nvd.demo_list.R
 @Composable
 fun PdfViewer(
     modifier: Modifier = Modifier,
@@ -30,41 +33,53 @@ fun PdfViewer(
     @RawRes rawResId: Int? = null,
     uri: Uri? = null
 ) {
-    val context = LocalContext.current
-    var imageFiles by remember { mutableStateOf<List<File>>(emptyList()) }
-    var loading by remember { mutableStateOf(true) }
-
-    LaunchedEffect(assetName, rawResId, uri) {
-        val converter = PdfBitmapConverter(context)
-        imageFiles = when {
-            assetName != null -> converter.pdfFromAssets(assetName)
-            rawResId != null -> converter.pdfFromRaw(rawResId)
-            uri != null -> converter.pdfToImageFiles(uri)
-            else -> emptyList()
-        }
-        loading = false
-    }
-
-    Log.d(
-        "========>>>>>>>> ",
-        "PdfViewer: file found  ${imageFiles.map { " ${it.length()} ${it.path}" }}"
+    val pdf = rememberVerticalPdfReaderState(
+        resource = ResourceType.Asset(R.raw.new_test),
+        isZoomEnable = false,
     )
-    if (loading) {
-        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-    } else {
-        val file = imageFiles.getOrNull(0)
-        file?.let {
-            AsyncImage(
-                file,
-                contentDescription = "Page ${0 + 1}",
-                contentScale = ContentScale.FillWidth,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .padding(8.dp)
-            )
-        }
-    }
+
+    VerticalPDFReader(
+        pdf,
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+    )
+
+//    val context = LocalContext.current
+//    var imageFiles by remember { mutableStateOf<List<File>>(emptyList()) }
+//    var loading by remember { mutableStateOf(true) }
+//
+//    LaunchedEffect(assetName, rawResId, uri) {
+//        val converter = PdfBitmapConverter(context)
+//        imageFiles = when {
+//            assetName != null -> converter.pdfFromAssets(assetName)
+//            rawResId != null -> converter.pdfFromRaw(rawResId)
+//            uri != null -> converter.pdfToImageFiles(uri)
+//            else -> emptyList()
+//        }
+//        loading = false
+//    }
+//
+//    Log.d(
+//        "========>>>>>>>> ",
+//        "PdfViewer: file found  ${imageFiles.map { " ${it.length()} ${it.path}" }}"
+//    )
+//    if (loading) {
+//        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+//            CircularProgressIndicator()
+//        }
+//    } else {
+//        val file = imageFiles.getOrNull(0)
+//        file?.let {
+//            AsyncImage(
+//                file,
+//                contentDescription = "Page ${0 + 1}",
+//                contentScale = ContentScale.FillWidth,
+//                modifier = modifier
+//                    .fillMaxWidth()
+//                    .aspectRatio(1f)
+//                    .padding(8.dp)
+//            )
+//        }
+//    }
 }
