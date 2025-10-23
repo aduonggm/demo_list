@@ -646,24 +646,13 @@ fun Option2Screen() {
                         // Wait a bit for UI to update
                         kotlinx.coroutines.delay(100)
 
-                        // Adjust crop rect to be relative to PdfViewer instead of screen
-                        val adjustedCropRect = Rect(
-                            left = cropRect.left,
-                            top = cropRect.top - pdfViewerOffsetY,
-                            right = cropRect.right,
-                            bottom = cropRect.bottom - pdfViewerOffsetY
-                        )
-
-                        // Crop from high-quality source bitmap instead of screen capture
-                        // Lấy file của item đang được zoom từ map
-                        val currentSourceFile = currentCroppingImageUrl?.let { sourceFilesMap[it] }
-                        val success = cropAndSaveBitmap(
+                        // Capture and crop from screen instead of source bitmap
+                        val success = captureAndSaveCropArea(
                             context = context,
-                            sourceFile = currentSourceFile,
-                            cropRect = adjustedCropRect,
-                            zoomState = currentZoomState ?: ZoomState(),
-                            viewWidth = pdfViewerWidth,
-                            viewHeight = pdfViewerHeight
+                            rootView = view,
+                            viewWidth = viewWidth,
+                            viewHeight = viewHeight,
+                            cropRect = cropRect
                         )
 
                         withContext(Dispatchers.Main) {
