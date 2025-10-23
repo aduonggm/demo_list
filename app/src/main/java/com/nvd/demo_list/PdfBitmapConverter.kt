@@ -15,7 +15,7 @@ import java.io.File
 import java.io.FileOutputStream
 
 class PdfBitmapConverter(private val context: Context) {
-    suspend fun pdfToImageFiles(contentUri: Uri): List<File> = withContext(Dispatchers.IO) {
+    suspend fun pdfToImageFiles(contentUri: Uri, name :String): List<File> = withContext(Dispatchers.IO) {
         val imageFiles = mutableListOf<File>()
 
         context.contentResolver.openFileDescriptor(contentUri, "r")?.use { descriptor ->
@@ -27,7 +27,14 @@ class PdfBitmapConverter(private val context: Context) {
                     canvas.drawColor(Color.WHITE)
                     page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
 
-                    val file = File(context.cacheDir, "${System.currentTimeMillis()}pdf_page_$i.png")
+                    val file = File(context.cacheDir, "${name}pdf_page_$i.png")
+                    if (file.exists()) {
+                        imageFiles.add(file)
+                        page.close()
+                        bitmap.recycle()
+
+                        return@use
+                    }
                     FileOutputStream(file).use { out ->
                         bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
                     }
@@ -45,12 +52,12 @@ class PdfBitmapConverter(private val context: Context) {
     suspend fun pdfFromAssets(assetName: String): List<File> {
         val file = File(context.cacheDir, "$assetName.pdf")
         context.assets.open(assetName).use { it.copyTo(FileOutputStream(file)) }
-        return pdfToImageFiles(file.toUri())
+        return pdfToImageFiles(file.toUri(), assetName)
     }
 
     suspend fun pdfFromRaw(@RawRes rawResId: Int): List<File> {
-        val file = File(context.cacheDir, "${System.currentTimeMillis()}_${rawResId}.pdf")
+        val file = File(context.cacheDir, "${rawResId}.pdf")
         context.resources.openRawResource(rawResId).use { it.copyTo(FileOutputStream(file)) }
-        return pdfToImageFiles(file.toUri())
+        return pdfToImageFiles(file.toUri(), rawResId.toString())
     }
 }

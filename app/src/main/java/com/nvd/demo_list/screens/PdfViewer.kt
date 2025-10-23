@@ -42,7 +42,7 @@ fun PdfViewer(
         imageFiles = when {
             assetName != null -> converter.pdfFromAssets(assetName)
             rawResId != null -> converter.pdfFromRaw(rawResId)
-            uri != null -> converter.pdfToImageFiles(uri)
+            uri != null -> converter.pdfToImageFiles(uri, "")
             else -> emptyList()
         }
         loading = false

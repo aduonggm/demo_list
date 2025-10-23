@@ -7,6 +7,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.EaseInOut
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.Spring.DampingRatioLowBouncy
@@ -75,6 +76,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,6 +92,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
@@ -134,6 +137,9 @@ fun NewsFeedListScreen(
     val insets = WindowInsets
     val statusBarHeight = insets.statusBars.getTop(LocalDensity.current)
     val navBarHeight = insets.navigationBars.getBottom(LocalDensity.current)
+
+    var offset by remember { mutableStateOf(itemFound.offset) }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
         ) { paddingValues ->
@@ -162,6 +168,7 @@ fun NewsFeedListScreen(
                         sharedTransitionScope = sharedTransitionScope,
                         animatedContentScope = animatedContentScope,
                         onClick = {
+                            offset = it.offset
                             itemFound = it
                             coroutineScope.launch {
                                 val layoutInfo = listState.layoutInfo
@@ -173,14 +180,30 @@ fun NewsFeedListScreen(
                                 )
                                 val itemCenter = it.offset.y + it.itemHeight / 2
                                 val diff = itemCenter - viewportCenter
-                                listState.animateScrollBy(
-                                    diff.toFloat(),
-                                    animationSpec = tween(
-                                        durationMillis = 500,
-                                        delayMillis = 0,
-                                        easing = EaseInOut
-                                    )
-                                )
+
+                                launch {
+                                    animateOffsetLinear(
+                                        start = itemFound.offset,
+                                        end =  IntOffset(
+                                            0,
+                                            ((screenHeightPx + navBarHeight + statusBarHeight - itemFound.itemHeight) / 2).toInt()
+                                        ),
+                                        durationMillis = 480
+                                    ) { value ->
+                                        Log.d("=======>>>>>>>>> ", "NewsFeedListScreen: offset change  $value")
+                                        offset = value
+                                    }
+                                }
+                               launch {
+                                   listState.animateScrollBy(
+                                       diff.toFloat(),
+                                       animationSpec = tween(
+                                           durationMillis = 500,
+                                           delayMillis = 0,
+                                           easing = EaseInOut
+                                       )
+                                   )
+                               }
                             }
                         },
                     )
@@ -216,35 +239,14 @@ fun NewsFeedListScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(color = Color.Black.copy(alpha = 0.6f))
+                    .background(color = Color.Black.copy(alpha = 0.9f))
                     .clickable {},
             ) {
 
             }
         }
 
-
         if (!itemFound.image.isNullOrEmpty()) {
-            var moved by remember { mutableStateOf(false) }
-            val offset by animateIntOffsetAsState(
-                targetValue = if (moved) {
-                    IntOffset(
-                        0,
-                        ((screenHeightPx + navBarHeight + statusBarHeight - itemFound.itemHeight) / 2).toInt()
-                    )
-                } else {
-                    itemFound.offset
-                },
-                label = "offset",
-
-                animationSpec = tween(durationMillis = 500, easing = EaseInOut)
-            )
-
-            LaunchedEffect(Unit) {
-                moved = true
-            }
-
-
             AsyncImage(
                 itemFound.image,
                 contentDescription = "Page ${0 + 1}",
@@ -253,11 +255,7 @@ fun NewsFeedListScreen(
                     .offset { offset }
                     .fillMaxWidth()
                     .zoomable(zoomRange = 1f..3f)
-                    .clickable {
-                        itemFound = ItemSelected()
-                    }
             )
-
             IconButton(
                 {
                     itemFound = ItemSelected()
@@ -279,6 +277,27 @@ fun NewsFeedListScreen(
         }
     }
 }
+
+suspend fun animateOffsetLinear(
+    start: IntOffset,
+    end: IntOffset,
+    durationMillis: Int = 500,
+    onUpdate: (IntOffset) -> Unit
+) {
+    val startTime = withFrameNanos { it }
+
+    while (true) {
+        val frameTime = withFrameNanos { it }
+        val elapsed = (frameTime - startTime) / 1_000_000f
+        val progress = (elapsed / durationMillis).coerceIn(0f, 1f)
+        val eased = EaseInOut.transform(progress)
+        val x = lerp(start.x, end.x, eased)
+        val y = lerp(start.y, end.y, eased)
+        onUpdate(IntOffset(0, y))
+        if (progress >= 1f) break
+    }
+}
+
 
 @Composable
 fun CreatePostCard() {
