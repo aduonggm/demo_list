@@ -82,12 +82,12 @@ fun PdfViewer(
                     contentScale = ContentScale.Fit,
                     modifier = modifier
                         .fillMaxWidth()
-                        .graphicsLayer(
-                            scaleX = scale,
-                            scaleY = scale,
-                            translationX = offset.x,
-                            translationY = offset.y
-                        )
+//                        .graphicsLayer(
+//                            scaleX = scale,
+//                            scaleY = scale,
+//                            translationX = offset.x,
+//                            translationY = offset.y
+//                        )
                 )
                 /*Box(
                     modifier = modifier
