@@ -73,7 +73,9 @@ import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -97,43 +99,38 @@ import nl.birdly.zoombox.gesture.condition.TouchCondition
 import nl.birdly.zoombox.gesture.transform.TransformGestureHandler
 import nl.birdly.zoombox.rememberMutableZoomState
 import nl.birdly.zoombox.zoomable
+import java.io.File
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.math.abs
 
 /**
- * Capture the crop area (transparent square region) from screen and save to MediaStore
+ * Capture the crop area from screen and save to MediaStore
  * Uses PixelCopy API to handle hardware bitmaps properly
  */
 suspend fun captureAndSaveCropArea(
     context: Context,
     rootView: View,
     viewWidth: Int,
-    viewHeight: Int
+    viewHeight: Int,
+    cropRect: Rect
 ): Boolean {
     return withContext(Dispatchers.IO) {
         try {
-            // Use actual view dimensions instead of displayMetrics
-            val screenWidth = viewWidth
-            val screenHeight = viewHeight
+            // Use actual crop rectangle coordinates from the overlay
+            val cropX = cropRect.left.toInt()
+            val cropY = cropRect.top.toInt()
+            val cropWidth = cropRect.width.toInt()
+            val cropHeight = cropRect.height.toInt()
 
-            // Calculate crop area (square with size = screen width, centered vertically)
-            val cropSize = screenWidth
-            val cropX = 0
-            val cropY = maxOf(0, (screenHeight - cropSize) / 2)
-
-            // Ensure crop dimensions are exactly square
-            val cropWidth = cropSize
-            val cropHeight = cropSize  // Always square, not minOf(...)
-
-            Log.d("CaptureImage", "View size: ${screenWidth}x${screenHeight}")
+            Log.d("CaptureImage", "View size: ${viewWidth}x${viewHeight}")
             Log.d("CaptureImage", "Crop area: x=$cropX, y=$cropY, w=$cropWidth, h=$cropHeight")
 
             // Capture using PixelCopy API (Android 8+) or fallback
             val fullBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                captureScreenWithPixelCopy(context, rootView, screenWidth, screenHeight)
+                captureScreenWithPixelCopy(context, rootView, viewWidth, viewHeight)
             } else {
-                captureScreenLegacy(rootView, screenWidth, screenHeight)
+                captureScreenLegacy(rootView, viewWidth, viewHeight)
             }
 
             if (fullBitmap == null) {
@@ -191,6 +188,120 @@ suspend fun captureAndSaveCropArea(
 
         } catch (e: Exception) {
             Log.e("CaptureImage", "Error capturing/saving image", e)
+            return@withContext false
+        }
+    }
+}
+
+/**
+ * Crop area from high-quality source bitmap and save to MediaStore
+ * This method crops from the original PDF bitmap to maintain quality
+ */
+suspend fun cropAndSaveBitmap(
+    context: Context,
+    sourceFile: File?,
+    cropRect: Rect,
+    zoomState: ZoomState,
+    viewWidth: Int,
+    viewHeight: Int
+): Boolean {
+    return withContext(Dispatchers.IO) {
+        try {
+            if (sourceFile == null || !sourceFile.exists()) {
+                Log.e("CropImage", "Source file is null or doesn't exist")
+                return@withContext false
+            }
+
+            // Load the high-quality source bitmap from file
+            val sourceBitmap = android.graphics.BitmapFactory.decodeFile(sourceFile.absolutePath)
+            if (sourceBitmap == null) {
+                Log.e("CropImage", "Failed to decode source bitmap")
+                return@withContext false
+            }
+
+            Log.d("CropImage", "Source bitmap size: ${sourceBitmap.width}x${sourceBitmap.height}")
+            Log.d("CropImage", "View size: ${viewWidth}x${viewHeight}")
+            Log.d("CropImage", "Zoom state: scale=${zoomState.scale}, offset=${zoomState.offset.x},${zoomState.offset.y}")
+            Log.d("CropImage", "Crop rect on screen: ${cropRect.left},${cropRect.top} - ${cropRect.right},${cropRect.bottom}")
+
+            // Calculate the scale ratio between source bitmap and displayed image
+            // With ContentScale.FillWidth, the width fills the screen and height scales proportionally
+            val displayScale = viewWidth.toFloat() / sourceBitmap.width.toFloat()
+
+            Log.d("CropImage", "Display scale: $displayScale")
+
+            // Get zoom parameters
+            val zoomScale = zoomState.scale
+            val zoomOffsetX = zoomState.offset.x
+            val zoomOffsetY = zoomState.offset.y
+
+            // Transform screen coordinates to source bitmap coordinates
+            // Formula: sourceCoord = (screenCoord - zoomOffset) / zoomScale / displayScale
+            val sourceCropX = ((cropRect.left - zoomOffsetX) / zoomScale / displayScale).toInt()
+            val sourceCropY = ((cropRect.top - zoomOffsetY) / zoomScale / displayScale).toInt()
+            val sourceCropWidth = (cropRect.width / zoomScale / displayScale).toInt()
+            val sourceCropHeight = (cropRect.height / zoomScale / displayScale).toInt()
+
+            Log.d("CropImage", "Calculated source crop: x=$sourceCropX, y=$sourceCropY, w=$sourceCropWidth, h=$sourceCropHeight")
+
+            // Validate and clamp crop area to bitmap bounds
+            val clampedX = sourceCropX.coerceIn(0, sourceBitmap.width - 1)
+            val clampedY = sourceCropY.coerceIn(0, sourceBitmap.height - 1)
+            val clampedWidth = sourceCropWidth.coerceIn(1, sourceBitmap.width - clampedX)
+            val clampedHeight = sourceCropHeight.coerceIn(1, sourceBitmap.height - clampedY)
+
+            if (clampedWidth <= 0 || clampedHeight <= 0) {
+                Log.e("CropImage", "Invalid crop dimensions after clamping")
+                sourceBitmap.recycle()
+                return@withContext false
+            }
+
+            Log.d("CropImage", "Clamped crop area: x=$clampedX, y=$clampedY, w=$clampedWidth, h=$clampedHeight")
+
+            // Crop from the high-quality source bitmap
+            val croppedBitmap = Bitmap.createBitmap(
+                sourceBitmap,
+                clampedX,
+                clampedY,
+                clampedWidth,
+                clampedHeight
+            )
+
+            // Save to MediaStore
+            val contentValues = ContentValues().apply {
+                put(
+                    MediaStore.Images.Media.DISPLAY_NAME,
+                    "crop_${System.currentTimeMillis()}.jpg"
+                )
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+            }
+
+            val uri = context.contentResolver.insert(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                contentValues
+            )
+
+            if (uri != null) {
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 95, outputStream)
+                }
+                Log.d("CropImage", "Image saved successfully to: $uri")
+
+                // Clean up
+                sourceBitmap.recycle()
+                croppedBitmap.recycle()
+
+                return@withContext true
+            } else {
+                Log.e("CropImage", "Failed to create MediaStore entry")
+                sourceBitmap.recycle()
+                croppedBitmap.recycle()
+                return@withContext false
+            }
+
+        } catch (e: Exception) {
+            Log.e("CropImage", "Error cropping image: ${e.message}", e)
             return@withContext false
         }
     }
@@ -301,6 +412,15 @@ fun Option2Screen() {
     var viewHeight by remember { mutableIntStateOf(0) }
     var resetZoomCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
     var isLongClick by remember { mutableStateOf(false) }
+    var overlayVisible by remember { mutableStateOf(true) }
+    
+    // Store source file and zoom state for high-quality cropping
+    // Lưu file theo từng item để tránh bị ghi đè
+    var sourceFilesMap by remember { mutableStateOf<Map<String, File>>(emptyMap()) }
+    var currentZoomState by remember { mutableStateOf<ZoomState?>(null) }
+    var pdfViewerWidth by remember { mutableIntStateOf(0) }
+    var pdfViewerHeight by remember { mutableIntStateOf(0) }
+    var pdfViewerOffsetY by remember { mutableIntStateOf(0) }
 
     Box(
         modifier = Modifier
@@ -369,6 +489,20 @@ fun Option2Screen() {
                         },
                         onResetZoom = { resetFn ->
                             resetZoomCallback = resetFn
+                        },
+                        onSourceFileReady = { file ->
+                            // Lưu file theo index để mỗi item có file riêng
+                            file?.let {
+                                sourceFilesMap = sourceFilesMap + ("pdf_${index}" to it)
+                            }
+                        },
+                        onZoomStateUpdate = { zoomState ->
+                            currentZoomState = zoomState
+                        },
+                        onPdfViewerSizeChanged = { width, height, offsetY ->
+                            pdfViewerWidth = width
+                            pdfViewerHeight = height
+                            pdfViewerOffsetY = offsetY
                         }
                     )
                 }
@@ -465,34 +599,64 @@ fun Option2Screen() {
             CropOverlay(
                 context = context,
                 imageUrl = currentCroppingImageUrl!!,
+                isVisible = overlayVisible,
                 onCancel = {
                     // Reset zoom state before closing overlay
                     resetZoomCallback?.invoke()
                     isZoom = false
                     currentCroppingImageUrl = null
                     isLongClick = false
+                    overlayVisible = true
                 },
-                onCrop = {
+                onCrop = { cropRect ->
                     scope.launch {
-                        // Get root view for capturing
-                        val rootView = view.rootView
-                        val success = captureAndSaveCropArea(
-                            context = context,
-                            rootView = rootView,
-                            viewWidth = viewWidth,
-                            viewHeight = viewHeight
-                        )
+                        // Hide overlay handles before cropping
                         withContext(Dispatchers.Main) {
+                            overlayVisible = false
+                        }
+
+                        // Wait a bit for UI to update
+                        kotlinx.coroutines.delay(100)
+
+                        // Adjust crop rect to be relative to PdfViewer instead of screen
+                        val adjustedCropRect = Rect(
+                            left = cropRect.left,
+                            top = cropRect.top - pdfViewerOffsetY,
+                            right = cropRect.right,
+                            bottom = cropRect.bottom - pdfViewerOffsetY
+                        )
+
+                        // Crop from high-quality source bitmap instead of screen capture
+                        // Lấy file của item đang được zoom từ map
+                        val currentSourceFile = currentCroppingImageUrl?.let { sourceFilesMap[it] }
+                        val success = cropAndSaveBitmap(
+                            context = context,
+                            sourceFile = currentSourceFile,
+                            cropRect = adjustedCropRect,
+                            zoomState = currentZoomState ?: ZoomState(),
+                            viewWidth = pdfViewerWidth,
+                            viewHeight = pdfViewerHeight
+                        )
+
+                        withContext(Dispatchers.Main) {
+                            // Show overlay again
+                            overlayVisible = true
+
                             if (success) {
                                 Toast.makeText(
                                     context,
-                                    "Screen captured and saved successfully!",
+                                    "Image cropped and saved successfully!",
                                     Toast.LENGTH_SHORT
                                 ).show()
+                                // Reset zoom state and close overlay after successful crop
+//                                resetZoomCallback?.invoke()
+//                                isZoom = false
+//                                currentCroppingImageUrl = null
+//                                isLongClick = false
                             } else {
                                 Toast.makeText(
                                     context,
-                                    "Failed to capture screen",
+                                    "Failed to crop image",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
@@ -513,13 +677,19 @@ private fun NewsFeedCard(
     isVisible: Boolean = true,
     onLongClick: () -> Unit = {},
     onZoomChange: (Boolean) -> Unit = {},
-    onResetZoom: (() -> Unit) -> Unit = {}
+    onResetZoom: (() -> Unit) -> Unit = {},
+    onSourceFileReady: (File?) -> Unit = {},
+    onZoomStateUpdate: (ZoomState) -> Unit = {},
+    onPdfViewerSizeChanged: (width: Int, height: Int, offsetY: Int) -> Unit = { _, _, _ -> }
 ) {
     val zoomState = rememberMutableZoomState()
     val isZooming = zoomState.value.scale > 1f
 
     // Notify parent about zoom state
     onZoomChange(isZooming)
+    
+    // Notify parent about zoom state changes for cropping
+    onZoomStateUpdate(zoomState.value)
 
     // Expose reset function to parent
     onResetZoom {
@@ -540,6 +710,11 @@ private fun NewsFeedCard(
     PdfViewer(
         modifier = Modifier
             .fillMaxWidth()
+            .onGloballyPositioned { coordinates ->
+                val position = coordinates.positionInWindow()
+                val size = coordinates.size
+                onPdfViewerSizeChanged(size.width, size.height, position.y.toInt())
+            }
             .zoomable(
                 zoomState = zoomState,
                 zoomRange = 1f..3f,
@@ -655,7 +830,8 @@ private fun NewsFeedCard(
                     }
                 )
             ),
-        rawResId = if (index % 2 == 0) R.raw.test_1 else R.raw.test_2
+        rawResId = if (index % 2 == 0) R.raw.test_1 else R.raw.test_2,
+        onImageFileReady = onSourceFileReady
     )
 
 
@@ -675,8 +851,9 @@ fun CropOverlay(
     context: Context,
     imageUrl: String,
     modifier: Modifier = Modifier,
+    isVisible: Boolean = true,
     onCancel: () -> Unit = {},
-    onCrop: () -> Unit = {}
+    onCrop: (Rect) -> Unit = {}
 ) {
     var cropRect by remember { mutableStateOf(Rect.Zero) }
     var isDragging by remember { mutableStateOf(false) }
@@ -741,7 +918,7 @@ fun CropOverlay(
                 isInitialized = true
             }
 
-            if (isInitialized && cropRect != Rect.Zero) {
+            if (isInitialized && cropRect != Rect.Zero && isVisible) {
                 // Draw black overlay on top (above crop area)
                 if (cropRect.top > 0) {
                     drawRect(
@@ -808,7 +985,7 @@ fun CropOverlay(
             }
 
             TextButton(
-                onClick = onCrop,
+                onClick = { onCrop(cropRect) },
                 modifier = Modifier.padding(horizontal = 32.dp)
             ) {
                 Text(
@@ -1055,5 +1232,5 @@ private fun updateCropRect(
     return newRect
 }
 
-const val LONG_PRESS_TIME = 1500L
+const val LONG_PRESS_TIME = 500L
 

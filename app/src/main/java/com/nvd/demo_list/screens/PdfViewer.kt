@@ -29,7 +29,8 @@ fun PdfViewer(
     modifier: Modifier = Modifier,
     assetName: String? = null,
     @RawRes rawResId: Int? = null,
-    uri: Uri? = null
+    uri: Uri? = null,
+    onImageFileReady: (File?) -> Unit = {}
 ) {
 
 
@@ -46,6 +47,7 @@ fun PdfViewer(
             else -> emptyList()
         }
         loading = false
+        onImageFileReady(imageFiles.getOrNull(0))
     }
 
     Log.d(
