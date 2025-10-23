@@ -76,7 +76,20 @@ fun PdfViewer(
             }
 
             bitmap?.let { imageBitmap ->
-                Box(
+                Image(
+                    bitmap = imageBitmap,
+                    contentDescription = "Page ${0 + 1}",
+                    contentScale = ContentScale.Fit,
+                    modifier = modifier
+                        .fillMaxWidth()
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offset.x,
+                            translationY = offset.y
+                        )
+                )
+                /*Box(
                     modifier = modifier
                         .fillMaxSize()
                         .pointerInput(Unit) {
@@ -107,7 +120,7 @@ fun PdfViewer(
                                 translationY = offset.y
                             )
                     )
-                }
+                }*/
             }
         }
     }

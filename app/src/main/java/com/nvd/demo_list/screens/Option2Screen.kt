@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.os.Build
 import android.os.Environment
@@ -22,6 +23,7 @@ import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -67,8 +69,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
@@ -221,8 +225,14 @@ suspend fun cropAndSaveBitmap(
 
             Log.d("CropImage", "Source bitmap size: ${sourceBitmap.width}x${sourceBitmap.height}")
             Log.d("CropImage", "View size: ${viewWidth}x${viewHeight}")
-            Log.d("CropImage", "Zoom state: scale=${zoomState.scale}, offset=${zoomState.offset.x},${zoomState.offset.y}")
-            Log.d("CropImage", "Crop rect on screen: ${cropRect.left},${cropRect.top} - ${cropRect.right},${cropRect.bottom}")
+            Log.d(
+                "CropImage",
+                "Zoom state: scale=${zoomState.scale}, offset=${zoomState.offset.x},${zoomState.offset.y}"
+            )
+            Log.d(
+                "CropImage",
+                "Crop rect on screen: ${cropRect.left},${cropRect.top} - ${cropRect.right},${cropRect.bottom}"
+            )
 
             // Calculate the scale ratio between source bitmap and displayed image
             // With ContentScale.FillWidth, the width fills the screen and height scales proportionally
@@ -242,7 +252,10 @@ suspend fun cropAndSaveBitmap(
             val sourceCropWidth = (cropRect.width / zoomScale / displayScale).toInt()
             val sourceCropHeight = (cropRect.height / zoomScale / displayScale).toInt()
 
-            Log.d("CropImage", "Calculated source crop: x=$sourceCropX, y=$sourceCropY, w=$sourceCropWidth, h=$sourceCropHeight")
+            Log.d(
+                "CropImage",
+                "Calculated source crop: x=$sourceCropX, y=$sourceCropY, w=$sourceCropWidth, h=$sourceCropHeight"
+            )
 
             // Validate and clamp crop area to bitmap bounds
             val clampedX = sourceCropX.coerceIn(0, sourceBitmap.width - 1)
@@ -256,7 +269,10 @@ suspend fun cropAndSaveBitmap(
                 return@withContext false
             }
 
-            Log.d("CropImage", "Clamped crop area: x=$clampedX, y=$clampedY, w=$clampedWidth, h=$clampedHeight")
+            Log.d(
+                "CropImage",
+                "Clamped crop area: x=$clampedX, y=$clampedY, w=$clampedWidth, h=$clampedHeight"
+            )
 
             // Crop from the high-quality source bitmap
             val croppedBitmap = Bitmap.createBitmap(
@@ -413,7 +429,7 @@ fun Option2Screen() {
     var resetZoomCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
     var isLongClick by remember { mutableStateOf(false) }
     var overlayVisible by remember { mutableStateOf(true) }
-    
+
     // Store source file and zoom state for high-quality cropping
     // Lưu file theo từng item để tránh bị ghi đè
     var sourceFilesMap by remember { mutableStateOf<Map<String, File>>(emptyMap()) }
@@ -421,6 +437,10 @@ fun Option2Screen() {
     var pdfViewerWidth by remember { mutableIntStateOf(0) }
     var pdfViewerHeight by remember { mutableIntStateOf(0) }
     var pdfViewerOffsetY by remember { mutableIntStateOf(0) }
+
+    // State for zoomed PDF overlay
+    var zoomedPdfIndex by remember { mutableIntStateOf(-1) }
+    var zoomedPdfFile by remember { mutableStateOf<File?>(null) }
 
     Box(
         modifier = Modifier
@@ -485,6 +505,14 @@ fun Option2Screen() {
                                 "pdf_${index}" // Use a unique identifier for PDF
                             } else {
                                 null
+                            }
+                            // Update zoomed PDF state
+                            if (zooming) {
+                                zoomedPdfIndex = index
+                                zoomedPdfFile = sourceFilesMap["pdf_${index}"]
+                            } else {
+                                zoomedPdfIndex = -1
+                                zoomedPdfFile = null
                             }
                         },
                         onResetZoom = { resetFn ->
@@ -687,7 +715,7 @@ private fun NewsFeedCard(
 
     // Notify parent about zoom state
     onZoomChange(isZooming)
-    
+
     // Notify parent about zoom state changes for cropping
     onZoomStateUpdate(zoomState.value)
 
@@ -842,8 +870,6 @@ private fun NewsFeedCard(
 
     // Action Buttons
     ActionButtons(item)
-
-
 }
 
 @Composable
