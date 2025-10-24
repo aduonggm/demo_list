@@ -1,36 +1,18 @@
 package com.nvd.demo_list.screens
 
 import android.annotation.SuppressLint
-import android.app.Activity
-import android.content.ContentValues
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.os.Build
-import android.os.Environment
-import android.os.Handler
-import android.os.Looper
-import android.provider.MediaStore
 import android.util.Log
 import android.view.MotionEvent
-import android.view.PixelCopy
-import android.view.View
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,11 +31,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,17 +47,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerInputScope
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -84,17 +58,16 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.zIndex
-import androidx.core.graphics.createBitmap
 import coil.compose.AsyncImage
 import com.nvd.demo_list.R
 import com.nvd.demo_list.models.NewsFeedData
 import com.nvd.demo_list.models.NewsFeedItem
+import com.nvd.demo_list.navigation.Screen
+import com.nvd.demo_list.ui.component.CropOverlay
+import com.nvd.demo_list.ui.utils.captureAndSaveCropArea
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -104,305 +77,14 @@ import nl.birdly.zoombox.gesture.transform.TransformGestureHandler
 import nl.birdly.zoombox.rememberMutableZoomState
 import nl.birdly.zoombox.zoomable
 import java.io.File
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
-import kotlin.math.abs
 
-/**
- * Capture the crop area from screen and save to MediaStore
- * Uses PixelCopy API to handle hardware bitmaps properly
- */
-suspend fun captureAndSaveCropArea(
-    context: Context,
-    rootView: View,
-    viewWidth: Int,
-    viewHeight: Int,
-    cropRect: Rect
-): Boolean {
-    return withContext(Dispatchers.IO) {
-        try {
-            // Use actual crop rectangle coordinates from the overlay
-            val cropX = cropRect.left.toInt()
-            val cropY = cropRect.top.toInt()
-            val cropWidth = cropRect.width.toInt()
-            val cropHeight = cropRect.height.toInt()
-
-            Log.d("CaptureImage", "View size: ${viewWidth}x${viewHeight}")
-            Log.d("CaptureImage", "Crop area: x=$cropX, y=$cropY, w=$cropWidth, h=$cropHeight")
-
-            // Capture using PixelCopy API (Android 8+) or fallback
-            val fullBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                captureScreenWithPixelCopy(context, rootView, viewWidth, viewHeight)
-            } else {
-                captureScreenLegacy(rootView, viewWidth, viewHeight)
-            }
-
-            if (fullBitmap == null) {
-                Log.e("CaptureImage", "Failed to capture screen")
-                return@withContext false
-            }
-
-            // Validate crop area is within bounds
-            if (cropY + cropHeight > fullBitmap.height) {
-                Log.e("CaptureImage", "Crop area exceeds bitmap bounds")
-                fullBitmap.recycle()
-                return@withContext false
-            }
-
-            // Crop only the transparent square area from the captured bitmap
-            val croppedBitmap = Bitmap.createBitmap(
-                fullBitmap,
-                cropX,
-                cropY,
-                cropWidth,
-                cropHeight
-            )
-
-            // Save to MediaStore
-            val contentValues = ContentValues().apply {
-                put(
-                    MediaStore.Images.Media.DISPLAY_NAME,
-                    "capture_${System.currentTimeMillis()}.jpg"
-                )
-                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
-            }
-
-            val uri = context.contentResolver.insert(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                contentValues
-            )
-
-            if (uri != null) {
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 95, outputStream)
-                }
-                Log.d("CaptureImage", "Image saved successfully to: $uri")
-
-                // Clean up
-                fullBitmap.recycle()
-                croppedBitmap.recycle()
-
-                return@withContext true
-            } else {
-                Log.e("CaptureImage", "Failed to create MediaStore entry")
-                fullBitmap.recycle()
-                return@withContext false
-            }
-
-        } catch (e: Exception) {
-            Log.e("CaptureImage", "Error capturing/saving image", e)
-            return@withContext false
-        }
-    }
-}
-
-/**
- * Crop area from high-quality source bitmap and save to MediaStore
- * This method crops from the original PDF bitmap to maintain quality
- */
-suspend fun cropAndSaveBitmap(
-    context: Context,
-    sourceFile: File?,
-    cropRect: Rect,
-    zoomState: ZoomState,
-    viewWidth: Int,
-    viewHeight: Int
-): Boolean {
-    return withContext(Dispatchers.IO) {
-        try {
-            if (sourceFile == null || !sourceFile.exists()) {
-                Log.e("CropImage", "Source file is null or doesn't exist")
-                return@withContext false
-            }
-
-            // Load the high-quality source bitmap from file
-            val sourceBitmap = android.graphics.BitmapFactory.decodeFile(sourceFile.absolutePath)
-            if (sourceBitmap == null) {
-                Log.e("CropImage", "Failed to decode source bitmap")
-                return@withContext false
-            }
-
-            Log.d("CropImage", "Source bitmap size: ${sourceBitmap.width}x${sourceBitmap.height}")
-            Log.d("CropImage", "View size: ${viewWidth}x${viewHeight}")
-            Log.d(
-                "CropImage",
-                "Zoom state: scale=${zoomState.scale}, offset=${zoomState.offset.x},${zoomState.offset.y}"
-            )
-            Log.d(
-                "CropImage",
-                "Crop rect on screen: ${cropRect.left},${cropRect.top} - ${cropRect.right},${cropRect.bottom}"
-            )
-
-            // Calculate the scale ratio between source bitmap and displayed image
-            // With ContentScale.FillWidth, the width fills the screen and height scales proportionally
-            val displayScale = viewWidth.toFloat() / sourceBitmap.width.toFloat()
-
-            Log.d("CropImage", "Display scale: $displayScale")
-
-            // Get zoom parameters
-            val zoomScale = zoomState.scale
-            val zoomOffsetX = zoomState.offset.x
-            val zoomOffsetY = zoomState.offset.y
-
-            // Transform screen coordinates to source bitmap coordinates
-            // Formula: sourceCoord = (screenCoord - zoomOffset) / zoomScale / displayScale
-            val sourceCropX = ((cropRect.left - zoomOffsetX) / zoomScale / displayScale).toInt()
-            val sourceCropY = ((cropRect.top - zoomOffsetY) / zoomScale / displayScale).toInt()
-            val sourceCropWidth = (cropRect.width / zoomScale / displayScale).toInt()
-            val sourceCropHeight = (cropRect.height / zoomScale / displayScale).toInt()
-
-            Log.d(
-                "CropImage",
-                "Calculated source crop: x=$sourceCropX, y=$sourceCropY, w=$sourceCropWidth, h=$sourceCropHeight"
-            )
-
-            // Validate and clamp crop area to bitmap bounds
-            val clampedX = sourceCropX.coerceIn(0, sourceBitmap.width - 1)
-            val clampedY = sourceCropY.coerceIn(0, sourceBitmap.height - 1)
-            val clampedWidth = sourceCropWidth.coerceIn(1, sourceBitmap.width - clampedX)
-            val clampedHeight = sourceCropHeight.coerceIn(1, sourceBitmap.height - clampedY)
-
-            if (clampedWidth <= 0 || clampedHeight <= 0) {
-                Log.e("CropImage", "Invalid crop dimensions after clamping")
-                sourceBitmap.recycle()
-                return@withContext false
-            }
-
-            Log.d(
-                "CropImage",
-                "Clamped crop area: x=$clampedX, y=$clampedY, w=$clampedWidth, h=$clampedHeight"
-            )
-
-            // Crop from the high-quality source bitmap
-            val croppedBitmap = Bitmap.createBitmap(
-                sourceBitmap,
-                clampedX,
-                clampedY,
-                clampedWidth,
-                clampedHeight
-            )
-
-            // Save to MediaStore
-            val contentValues = ContentValues().apply {
-                put(
-                    MediaStore.Images.Media.DISPLAY_NAME,
-                    "crop_${System.currentTimeMillis()}.jpg"
-                )
-                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
-            }
-
-            val uri = context.contentResolver.insert(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                contentValues
-            )
-
-            if (uri != null) {
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 95, outputStream)
-                }
-                Log.d("CropImage", "Image saved successfully to: $uri")
-
-                // Clean up
-                sourceBitmap.recycle()
-                croppedBitmap.recycle()
-
-                return@withContext true
-            } else {
-                Log.e("CropImage", "Failed to create MediaStore entry")
-                sourceBitmap.recycle()
-                croppedBitmap.recycle()
-                return@withContext false
-            }
-
-        } catch (e: Exception) {
-            Log.e("CropImage", "Error cropping image: ${e.message}", e)
-            return@withContext false
-        }
-    }
-}
-
-/**
- * Capture screen using PixelCopy API (Android 8+)
- * This properly handles hardware bitmaps
- */
-@RequiresApi(Build.VERSION_CODES.O)
-private suspend fun captureScreenWithPixelCopy(
-    context: Context,
-    view: View,
-    width: Int,
-    height: Int
-): Bitmap? = suspendCoroutine { continuation ->
-    try {
-        val bitmap = createBitmap(width, height)
-        val locationOfView = IntArray(2)
-        view.getLocationInWindow(locationOfView)
-
-        val window = (context as? Activity)?.window
-        if (window == null) {
-            Log.e("CaptureImage", "Context is not an Activity")
-            continuation.resume(null)
-            return@suspendCoroutine
-        }
-
-        PixelCopy.request(
-            window,
-            android.graphics.Rect(
-                locationOfView[0],
-                locationOfView[1],
-                locationOfView[0] + width,
-                locationOfView[1] + height
-            ),
-            bitmap,
-            { copyResult ->
-                if (copyResult == PixelCopy.SUCCESS) {
-                    continuation.resume(bitmap)
-                } else {
-                    Log.e("CaptureImage", "PixelCopy failed with result: $copyResult")
-                    continuation.resume(null)
-                }
-            },
-            Handler(Looper.getMainLooper())
-        )
-    } catch (e: Exception) {
-        Log.e("CaptureImage", "Error in PixelCopy", e)
-        continuation.resume(null)
-    }
-}
-
-/**
- * Legacy capture method for Android < 8
- * Disables hardware acceleration temporarily to avoid hardware bitmap issues
- */
-private suspend fun captureScreenLegacy(
-    view: View,
-    width: Int,
-    height: Int
-): Bitmap? = withContext(Dispatchers.Main) {
-    try {
-        // Temporarily disable hardware acceleration
-        val originalLayerType = view.layerType
-        view.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
-
-        val bitmap = createBitmap(width, height)
-        val canvas = Canvas(bitmap)
-        view.draw(canvas)
-
-        // Restore original layer type
-        view.setLayerType(originalLayerType, null)
-
-        bitmap
-    } catch (e: Exception) {
-        Log.e("CaptureImage", "Error in legacy capture", e)
-        null
-    }
-}
 
 @SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun Option2Screen() {
+fun Option2Screen(
+    navController: androidx.navigation.NavController? = null
+) {
     val newsFeedItems = remember { NewsFeedData.getSampleData() }
     val listState = rememberLazyListState()
     val context = LocalContext.current
@@ -430,6 +112,9 @@ fun Option2Screen() {
     var isLongClick by remember { mutableStateOf(false) }
     var overlayVisible by remember { mutableStateOf(true) }
 
+    // Mutable list to store URIs of cropped images
+    val croppedImageUris = remember { mutableListOf<android.net.Uri>() }
+
     // Store source file and zoom state for high-quality cropping
     // Lưu file theo từng item để tránh bị ghi đè
     var sourceFilesMap by remember { mutableStateOf<Map<String, File>>(emptyMap()) }
@@ -451,7 +136,23 @@ fun Option2Screen() {
             }
     ) {
         Scaffold(
-            modifier = Modifier.zIndex(0f)
+            modifier = Modifier.zIndex(0f),
+            floatingActionButton = {
+                if (!isZoom) {
+                    FloatingActionButton(
+                        onClick = {
+                            // Store URIs in companion object and navigate
+                            ImageListCropScreenData.croppedImageUris = croppedImageUris.toList()
+                            navController?.navigate(Screen.ImageCropListScreen.route)
+                        },
+                        modifier = Modifier.align(alignment = Alignment.BottomEnd)
+                    ) {
+                        Text(
+                            text = "List Crop"
+                        )
+                    }
+                }
+            }
         ) { paddingValues ->
             LazyColumn(
                 state = listState,
@@ -647,7 +348,7 @@ fun Option2Screen() {
                         kotlinx.coroutines.delay(100)
 
                         // Capture and crop from screen instead of source bitmap
-                        val success = captureAndSaveCropArea(
+                        val croppedUri = captureAndSaveCropArea(
                             context = context,
                             rootView = view,
                             viewWidth = viewWidth,
@@ -659,7 +360,11 @@ fun Option2Screen() {
                             // Show overlay again
                             overlayVisible = true
 
-                            if (success) {
+                            if (croppedUri != null) {
+                                // Add URI to the list
+                                croppedImageUris.add(croppedUri)
+                                Log.d("CropImage", "Total cropped images: ${croppedImageUris.size}")
+
                                 Toast.makeText(
                                     context,
                                     "Image cropped and saved successfully!",
@@ -859,392 +564,6 @@ private fun NewsFeedCard(
 
     // Action Buttons
     ActionButtons(item)
-}
-
-@Composable
-fun CropOverlay(
-    context: Context,
-    imageUrl: String,
-    modifier: Modifier = Modifier,
-    isVisible: Boolean = true,
-    onCancel: () -> Unit = {},
-    onCrop: (Rect) -> Unit = {}
-) {
-    var cropRect by remember { mutableStateOf(Rect.Zero) }
-    var isDragging by remember { mutableStateOf(false) }
-    var dragHandle by remember { mutableIntStateOf(-1) }
-    var isInitialized by remember { mutableStateOf(false) }
-
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .zIndex(5f)
-    ) {
-        // Canvas overlay with drag gestures
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            dragHandle = getHandleAtPosition(offset, cropRect)
-                            isDragging = dragHandle >= 0
-                        },
-                        onDragEnd = {
-                            isDragging = false
-                            dragHandle = -1
-                        },
-                        onDrag = { _, dragAmount ->
-                            if (isDragging && dragHandle >= 0) {
-                                val imageRect = Rect(
-                                    left = 0f,
-                                    top = 0f,
-                                    right = size.width.toFloat(),
-                                    bottom = size.height.toFloat()
-                                )
-                                cropRect = updateCropRect(
-                                    cropRect,
-                                    dragHandle,
-                                    dragAmount,
-                                    size.toSize(),
-                                    imageRect
-                                )
-                            }
-                        }
-                    )
-                }
-        ) {
-            val screenWidth = size.width
-            val screenHeight = size.height
-
-            // Initialize crop rect only once
-            if (!isInitialized && screenWidth > 0 && screenHeight > 0) {
-                val margin = 55.dp.toPx()
-                val centerX = screenWidth / 2
-                val centerY = screenHeight / 2
-                val rectSize = minOf(screenWidth, screenHeight) - 2 * margin
-
-                cropRect = Rect(
-                    left = centerX - rectSize / 2,
-                    top = centerY - rectSize / 2,
-                    right = centerX + rectSize / 2,
-                    bottom = centerY + rectSize / 2
-                )
-                isInitialized = true
-            }
-
-            if (isInitialized && cropRect != Rect.Zero && isVisible) {
-                // Draw black overlay on top (above crop area)
-                if (cropRect.top > 0) {
-                    drawRect(
-                        color = Color.Black.copy(alpha = 0.7f),
-                        topLeft = Offset(0f, 0f),
-                        size = Size(screenWidth, cropRect.top)
-                    )
-                }
-
-                // Draw black overlay on bottom (below crop area)
-                if (cropRect.bottom < screenHeight) {
-                    drawRect(
-                        color = Color.Black.copy(alpha = 0.7f),
-                        topLeft = Offset(0f, cropRect.bottom),
-                        size = Size(screenWidth, screenHeight - cropRect.bottom)
-                    )
-                }
-
-                // Draw black overlay on left (beside crop area)
-                if (cropRect.left > 0) {
-                    drawRect(
-                        color = Color.Black.copy(alpha = 0.7f),
-                        topLeft = Offset(0f, cropRect.top),
-                        size = Size(cropRect.left, cropRect.height)
-                    )
-                }
-
-                // Draw black overlay on right (beside crop area)
-                if (cropRect.right < screenWidth) {
-                    drawRect(
-                        color = Color.Black.copy(alpha = 0.7f),
-                        topLeft = Offset(cropRect.right, cropRect.top),
-                        size = Size(screenWidth - cropRect.right, cropRect.height)
-                    )
-                }
-
-                // Draw crop frame
-                drawCropFrame(cropRect)
-
-                // Draw resize handles
-                drawResizeHandles(cropRect)
-            }
-        }
-
-        // Buttons row - positioned at bottom
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(80.dp)
-                .align(Alignment.BottomCenter)
-                .background(Color.White),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(
-                onClick = onCancel,
-                modifier = Modifier.padding(horizontal = 32.dp)
-            ) {
-                Text(
-                    text = "Cancel",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            TextButton(
-                onClick = { onCrop(cropRect) },
-                modifier = Modifier.padding(horizontal = 32.dp)
-            ) {
-                Text(
-                    text = "Crop",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1877F2)
-                )
-            }
-        }
-    }
-}
-
-private fun DrawScope.drawCropFrame(cropRect: Rect) {
-    val strokeWidth = 2.dp.toPx()
-
-    // Draw complete frame
-    drawRect(
-        color = Color.White,
-        topLeft = Offset(cropRect.left, cropRect.top),
-        size = Size(cropRect.width, cropRect.height),
-        style = Stroke(width = strokeWidth)
-    )
-}
-
-private fun DrawScope.drawResizeHandles(cropRect: Rect) {
-    val handleSize = 15.dp.toPx()
-    val handleColor = Color.White
-    val handleStroke = 2.dp.toPx()
-
-    val centerX = cropRect.left + cropRect.width / 2
-    val centerY = cropRect.top + cropRect.height / 2
-
-    val handles = listOf(
-        // Corner handles
-        Offset(cropRect.left, cropRect.top),      // 0: top-left
-        Offset(cropRect.right, cropRect.top),     // 1: top-right
-        Offset(cropRect.left, cropRect.bottom),   // 2: bottom-left
-        Offset(cropRect.right, cropRect.bottom),  // 3: bottom-right
-        // Edge handles
-        Offset(centerX, cropRect.top),            // 4: top-center
-        Offset(centerX, cropRect.bottom),         // 5: bottom-center
-        Offset(cropRect.left, centerY),           // 6: left-center
-        Offset(cropRect.right, centerY)           // 7: right-center
-    )
-
-    handles.forEach { handle ->
-        // Draw white border
-        drawRect(
-            color = handleColor,
-            topLeft = Offset(
-                handle.x - handleSize / 2,
-                handle.y - handleSize / 2
-            ),
-            size = Size(handleSize, handleSize),
-            style = Stroke(width = handleStroke)
-        )
-
-        // Draw black semi-transparent background
-        drawRect(
-            color = Color.Black.copy(alpha = 0.6f),
-            topLeft = Offset(
-                handle.x - handleSize / 2 + handleStroke,
-                handle.y - handleSize / 2 + handleStroke
-            ),
-            size = Size(handleSize - 2 * handleStroke, handleSize - 2 * handleStroke)
-        )
-
-        // Draw white dot in center
-        drawCircle(
-            color = Color.White,
-            radius = 3.dp.toPx(),
-            center = handle
-        )
-    }
-}
-
-private fun getHandleAtPosition(position: Offset, cropRect: Rect): Int {
-    val touchThreshold = 60f
-
-    val centerX = cropRect.left + cropRect.width / 2
-    val centerY = cropRect.top + cropRect.height / 2
-
-    val handles = listOf(
-        Offset(cropRect.left, cropRect.top),      // 0: top-left
-        Offset(cropRect.right, cropRect.top),     // 1: top-right
-        Offset(cropRect.left, cropRect.bottom),   // 2: bottom-left
-        Offset(cropRect.right, cropRect.bottom),  // 3: bottom-right
-        Offset(centerX, cropRect.top),            // 4: top-center
-        Offset(centerX, cropRect.bottom),         // 5: bottom-center
-        Offset(cropRect.left, centerY),           // 6: left-center
-        Offset(cropRect.right, centerY)           // 7: right-center
-    )
-
-    // Check handles with larger touch area
-    handles.forEachIndexed { index, handle ->
-        if (abs(position.x - handle.x) <= touchThreshold && abs(position.y - handle.y) <= touchThreshold) {
-            return index
-        }
-    }
-
-    val edgeThreshold = 20f
-
-    // Check if touching edges
-    if (position.x >= cropRect.left - touchThreshold && position.x <= cropRect.right + touchThreshold &&
-        position.y >= cropRect.top - touchThreshold && position.y <= cropRect.bottom + touchThreshold
-    ) {
-        // Touching near top/bottom edge
-        if ((abs(position.y - cropRect.top) <= edgeThreshold || abs(position.y - cropRect.bottom) <= edgeThreshold) &&
-            position.x >= cropRect.left - edgeThreshold && position.x <= cropRect.right + edgeThreshold
-        ) {
-            return if (abs(position.y - cropRect.top) <= edgeThreshold) 4 else 5
-        }
-
-        // Touching near left/right edge
-        if ((abs(position.x - cropRect.left) <= edgeThreshold || abs(position.x - cropRect.right) <= edgeThreshold) &&
-            position.y >= cropRect.top - edgeThreshold && position.y <= cropRect.bottom + edgeThreshold
-        ) {
-            return if (abs(position.x - cropRect.left) <= edgeThreshold) 6 else 7
-        }
-
-        // Touching center to move entire rect
-        if (position.x >= cropRect.left + edgeThreshold && position.x <= cropRect.right - edgeThreshold &&
-            position.y >= cropRect.top + edgeThreshold && position.y <= cropRect.bottom - edgeThreshold
-        ) {
-            return 8 // center drag
-        }
-    }
-
-    return -1
-}
-
-private fun updateCropRect(
-    currentRect: Rect,
-    handleIndex: Int,
-    dragAmount: Offset,
-    canvasSize: Size,
-    imageRect: Rect
-): Rect {
-    val minSize = 50f
-    var newRect = currentRect
-
-    when (handleIndex) {
-        0 -> { // top-left
-            val newLeft = (currentRect.left + dragAmount.x).coerceIn(
-                imageRect.left,
-                currentRect.right - minSize
-            )
-            val newTop = (currentRect.top + dragAmount.y).coerceIn(
-                imageRect.top,
-                currentRect.bottom - minSize
-            )
-            newRect = currentRect.copy(left = newLeft, top = newTop)
-        }
-
-        1 -> { // top-right
-            val newRight = (currentRect.right + dragAmount.x).coerceIn(
-                currentRect.left + minSize,
-                imageRect.right
-            )
-            val newTop = (currentRect.top + dragAmount.y).coerceIn(
-                imageRect.top,
-                currentRect.bottom - minSize
-            )
-            newRect = currentRect.copy(right = newRight, top = newTop)
-        }
-
-        2 -> { // bottom-left
-            val newLeft = (currentRect.left + dragAmount.x).coerceIn(
-                imageRect.left,
-                currentRect.right - minSize
-            )
-            val newBottom = (currentRect.bottom + dragAmount.y).coerceIn(
-                currentRect.top + minSize,
-                imageRect.bottom
-            )
-            newRect = currentRect.copy(left = newLeft, bottom = newBottom)
-        }
-
-        3 -> { // bottom-right
-            val newRight = (currentRect.right + dragAmount.x).coerceIn(
-                currentRect.left + minSize,
-                imageRect.right
-            )
-            val newBottom = (currentRect.bottom + dragAmount.y).coerceIn(
-                currentRect.top + minSize,
-                imageRect.bottom
-            )
-            newRect = currentRect.copy(right = newRight, bottom = newBottom)
-        }
-
-        4 -> { // top-center
-            val newTop = (currentRect.top + dragAmount.y).coerceIn(
-                imageRect.top,
-                currentRect.bottom - minSize
-            )
-            newRect = currentRect.copy(top = newTop)
-        }
-
-        5 -> { // bottom-center
-            val newBottom = (currentRect.bottom + dragAmount.y).coerceIn(
-                currentRect.top + minSize,
-                imageRect.bottom
-            )
-            newRect = currentRect.copy(bottom = newBottom)
-        }
-
-        6 -> { // left-center
-            val newLeft = (currentRect.left + dragAmount.x).coerceIn(
-                imageRect.left,
-                currentRect.right - minSize
-            )
-            newRect = currentRect.copy(left = newLeft)
-        }
-
-        7 -> { // right-center
-            val newRight = (currentRect.right + dragAmount.x).coerceIn(
-                currentRect.left + minSize,
-                imageRect.right
-            )
-            newRect = currentRect.copy(right = newRight)
-        }
-
-        8 -> { // center drag (move entire rect)
-            val deltaX = dragAmount.x
-            val deltaY = dragAmount.y
-            val newLeft = (currentRect.left + deltaX).coerceIn(
-                imageRect.left,
-                imageRect.right - currentRect.width
-            )
-            val newTop = (currentRect.top + deltaY).coerceIn(
-                imageRect.top,
-                imageRect.bottom - currentRect.height
-            )
-            newRect = Rect(
-                left = newLeft,
-                top = newTop,
-                right = newLeft + currentRect.width,
-                bottom = newTop + currentRect.height
-            )
-        }
-    }
-
-    return newRect
 }
 
 const val LONG_PRESS_TIME = 500L

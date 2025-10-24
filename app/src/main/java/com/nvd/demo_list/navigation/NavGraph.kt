@@ -10,6 +10,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.nvd.demo_list.screens.DetailsScreen
+import com.nvd.demo_list.screens.ImageListCropScreen
 import com.nvd.demo_list.screens.MainScreen
 import com.nvd.demo_list.screens.NewsFeedListScreen
 import com.nvd.demo_list.screens.Option2Screen
@@ -17,6 +18,8 @@ import com.nvd.demo_list.screens.Option2Screen
 sealed class Screen(val route: String) {
     object NewsFeedList : Screen("news_feed_list")
     object Option2 : Screen("option_2")
+
+    object ImageCropListScreen: Screen("image_crop_list_screen")
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -48,7 +51,7 @@ fun AppNavigation() {
 
 
             composable(Screen.Option2.route){
-                Option2Screen()
+                Option2Screen(navController = navController)
             }
 
 
@@ -66,6 +69,14 @@ fun AppNavigation() {
                 ) {
                     navController.navigateUp()
                 }
+            }
+
+            composable(Screen.ImageCropListScreen.route) {
+                ImageListCropScreen(
+                    onBackClick = {
+                        navController.navigateUp()
+                    }
+                )
             }
         }
     }
