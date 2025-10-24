@@ -2,17 +2,12 @@ package com.nvd.demo_list.screens.transform
 
 import android.util.Log
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
-import androidx.compose.foundation.gestures.calculateRotation
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.foundation.gestures.forEachGesture
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
@@ -50,13 +44,10 @@ import com.nvd.demo_list.screens.drawResizeHandles
 import com.nvd.demo_list.screens.getHandleAtPosition
 import com.nvd.demo_list.screens.updateCropRect
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.launch
 
 
 suspend fun PointerInputScope.handleTransformGestures(
     controllers: List<TransformController>,
-    lazyState: LazyListState,
     scope: CoroutineScope
 ) {
     var controller: TransformController? = null
@@ -74,7 +65,10 @@ suspend fun PointerInputScope.handleTransformGestures(
                 val found = controllers.filter { it.bounds?.contains(pos1) == true }
                     .sortedBy { !it.isZooming }
 
-                Log.d("========>>>>>> ", "handleTransformGestures: zooming sort  ${found.map { !it.isZooming }}")
+                Log.d(
+                    "========>>>>>> ",
+                    "handleTransformGestures: zooming sort  ${found.map { !it.isZooming }}"
+                )
                 controller = found.firstOrNull()
             }
 
@@ -113,11 +107,7 @@ fun ParentScreen() {
             userScrollEnabled = !controllers.map { it.isZooming }.toSet().contains(true),
             state = lazyState,
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier
-                .pointerInput(Unit) {
-                    handleTransformGestures(controllers, lazyState, coroutineScope)
-                }
-                .drawCrop()
+            modifier = Modifier.drawCrop(controllers, coroutineScope)
 
 
         ) {
@@ -161,7 +151,10 @@ fun ParentScreen() {
 }
 
 @Composable
-fun Modifier.drawCrop(): Modifier {
+fun Modifier.drawCrop(
+    controllers: List<TransformController>,
+    scope: CoroutineScope
+): Modifier {
     var cropRect by remember { mutableStateOf(Rect.Zero) }
     var isDragging by remember { mutableStateOf(false) }
     var dragHandle by remember { mutableIntStateOf(-1) }
@@ -169,6 +162,36 @@ fun Modifier.drawCrop(): Modifier {
 
 
     val e = Modifier
+        .pointerInput(Unit) {
+            handleTransformGestures(controllers,scope)
+        }
+        .pointerInput(Unit) {
+            detectDragGestures(
+                onDragStart = { offset ->
+                    dragHandle = getHandleAtPosition(offset, cropRect)
+                    isDragging = dragHandle >= 0
+                },
+                onDragEnd = {
+                    isDragging = false
+                    dragHandle = -1
+                },
+                onDrag = { _, dragAmount ->
+                    if (isDragging && dragHandle >= 0) {
+                        val imageRect = Rect(
+                            0f, 0f, size.width.toFloat(),
+                            size.height.toFloat()
+                        )
+                        cropRect = updateCropRect(
+                            cropRect,
+                            dragHandle,
+                            dragAmount,
+                            size.toSize(),
+                            imageRect
+                        )
+                    }
+                }
+            )
+        }
         .drawWithContent {
             drawContent() // vẽ nội dung bên dưới (ví dụ hình ảnh)
 
@@ -220,33 +243,7 @@ fun Modifier.drawCrop(): Modifier {
                 drawResizeHandles(cropRect)
             }
         }
-        .pointerInput(Unit) {
-            detectDragGestures(
-                onDragStart = { offset ->
-                    dragHandle = getHandleAtPosition(offset, cropRect)
-                    isDragging = dragHandle >= 0
-                },
-                onDragEnd = {
-                    isDragging = false
-                    dragHandle = -1
-                },
-                onDrag = { _, dragAmount ->
-                    if (isDragging && dragHandle >= 0) {
-                        val imageRect = Rect(
-                            0f, 0f, size.width.toFloat(),
-                            size.height.toFloat()
-                        )
-                        cropRect = updateCropRect(
-                            cropRect,
-                            dragHandle,
-                            dragAmount,
-                            size.toSize(),
-                            imageRect
-                        )
-                    }
-                }
-            )
-        }
+
 
     return then(e)
 }
