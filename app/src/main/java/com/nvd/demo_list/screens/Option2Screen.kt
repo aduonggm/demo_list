@@ -25,7 +25,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -54,6 +57,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -72,6 +76,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
@@ -92,6 +97,7 @@ import com.nvd.demo_list.models.NewsFeedItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import nl.birdly.zoombox.MutableZoomState
 import nl.birdly.zoombox.ZoomState
 import nl.birdly.zoombox.gesture.condition.TouchCondition
 import nl.birdly.zoombox.gesture.transform.TransformGestureHandler
@@ -302,6 +308,8 @@ fun Option2Screen() {
     var resetZoomCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
     var isLongClick by remember { mutableStateOf(false) }
 
+    var currentZoomState by remember { mutableStateOf<MutableZoomState?>(null) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -323,12 +331,8 @@ fun Option2Screen() {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Add post creation card
-                item {
-                    CreatePostCard()
-                }
-
                 // News feed items
-                items(newsFeedItems.size) { index ->
+                items(1) { index ->
                     val item = newsFeedItems[index]
                     NewsFeedCard(
                         item = item,
@@ -369,25 +373,10 @@ fun Option2Screen() {
                         },
                         onResetZoom = { resetFn ->
                             resetZoomCallback = resetFn
+                        },
+                        onZoomStateChange = {
+                            currentZoomState = it
                         }
-                    )
-                }
-
-                // Bottom spacing
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-            }
-
-            if (isZoom) {
-                IconButton({}) {
-                    Icon(
-                        Icons.Default.Clear,
-                        contentDescription = null,
-                        tint = Color.Black,
-                        modifier = Modifier
-                            .statusBarsPadding()
-                            .padding(30.dp)
                     )
                 }
             }
@@ -405,66 +394,11 @@ fun Option2Screen() {
             }
         }
 
-
-        if (!itemFound.image.isNullOrEmpty()) {
-            var moved by remember { mutableStateOf(false) }
-            val offset by animateIntOffsetAsState(
-                targetValue = if (moved) {
-                    IntOffset(
-                        0,
-                        ((screenHeightPx + navBarHeight + statusBarHeight - itemFound.itemHeight) / 2).toInt()
-                    )
-                } else {
-                    itemFound.offset
-                },
-                label = "offset",
-
-                animationSpec = tween(durationMillis = 500, easing = EaseInOut)
-            )
-
-            LaunchedEffect(Unit) {
-                moved = true
-            }
-
-
-            AsyncImage(
-                itemFound.image,
-                contentDescription = "Page ${0 + 1}",
-                contentScale = ContentScale.FillWidth,
-                modifier = Modifier
-                    .offset { offset }
-                    .fillMaxWidth()
-                    .zoomable(zoomRange = 1f..3f)
-                    .clickable {
-                        itemFound = ItemSelected()
-                    }
-            )
-
-            IconButton(
-                {
-                    itemFound = ItemSelected()
-
-                }, modifier = Modifier
-                    .safeGesturesPadding()
-                    .padding(8.dp)
-                    .background(color = Color.Gray.copy(alpha = 0.5f), shape = CircleShape)
-                    .zIndex(100f)
-            ) {
-
-                Icon(
-                    Icons.Default.Clear,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.padding(4.dp)
-                )
-            }
-        }
-
         // Crop overlay - shows when PDF is zooming
         if (isZoom && currentCroppingImageUrl != null && isLongClick) {
             CropOverlay(
                 context = context,
-                imageUrl = currentCroppingImageUrl!!,
+                imageUrl = "",
                 onCancel = {
                     // Reset zoom state before closing overlay
                     resetZoomCallback?.invoke()
@@ -472,6 +406,7 @@ fun Option2Screen() {
                     currentCroppingImageUrl = null
                     isLongClick = false
                 },
+                zoomState = currentZoomState,
                 onCrop = {
                     scope.launch {
                         // Get root view for capturing
@@ -513,13 +448,17 @@ private fun NewsFeedCard(
     isVisible: Boolean = true,
     onLongClick: () -> Unit = {},
     onZoomChange: (Boolean) -> Unit = {},
-    onResetZoom: (() -> Unit) -> Unit = {}
+    onResetZoom: (() -> Unit) -> Unit = {},
+    onZoomStateChange: (MutableZoomState) -> Unit = {}  // Callback mới
 ) {
     val zoomState = rememberMutableZoomState()
     val isZooming = zoomState.value.scale > 1f
-
     // Notify parent about zoom state
     onZoomChange(isZooming)
+    // Pass zoomState to parent
+    LaunchedEffect(Unit) {
+        onZoomStateChange(zoomState)
+    }
 
     // Expose reset function to parent
     onResetZoom {
@@ -666,14 +605,12 @@ private fun NewsFeedCard(
 
     // Action Buttons
     ActionButtons(item)
-
-
 }
-
 @Composable
 fun CropOverlay(
     context: Context,
     imageUrl: String,
+    zoomState: MutableZoomState?,
     modifier: Modifier = Modifier,
     onCancel: () -> Unit = {},
     onCrop: () -> Unit = {}
@@ -688,22 +625,46 @@ fun CropOverlay(
             .fillMaxSize()
             .zIndex(5f)
     ) {
-        // Canvas overlay with drag gestures
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            dragHandle = getHandleAtPosition(offset, cropRect)
-                            isDragging = dragHandle >= 0
-                        },
-                        onDragEnd = {
-                            isDragging = false
-                            dragHandle = -1
-                        },
-                        onDrag = { _, dragAmount ->
-                            if (isDragging && dragHandle >= 0) {
+                    detectTransformGestures { centroid, pan, zoom, rotation ->
+                        println("pointerInput 1")
+                        if (zoomState != null) {
+                            val current = zoomState.value
+                            val newScale = (current.scale * zoom).coerceIn(1f, 5f)
+                            val panAdjusted = pan
+                            val newOffset = if (zoom != 1f) {
+                                val scaleDiff = newScale / current.scale
+                                ((current.offset + centroid - panAdjusted) * scaleDiff - centroid)
+                            } else {
+                                current.offset - panAdjusted
+                            }
+
+                            zoomState.value = ZoomState(
+                                scale = newScale,
+                                offset = newOffset
+                            )
+                        }
+                    }
+                }
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+
+                        // Kiểm tra ngay khi chạm xuống xem có chạm handle không
+                        dragHandle = getHandleAtPosition(down.position, cropRect)
+                        isDragging = dragHandle >= 0
+                        if (!isDragging) return@awaitEachGesture // Nếu không chạm handle, kết thúc gesture luôn
+
+                        do {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull() ?: break
+                            val pointerCount = event.changes.count { it.pressed }
+
+                            if (pointerCount == 1 && isDragging && dragHandle >= 0) {
+                                val dragAmount = change.positionChange()
                                 val imageRect = Rect(
                                     left = 0f,
                                     top = 0f,
@@ -717,9 +678,17 @@ fun CropOverlay(
                                     size.toSize(),
                                     imageRect
                                 )
+                                change.consume()
                             }
-                        }
-                    )
+
+                            // Reset khi thả tay
+                            if (event.changes.none { it.pressed }) {
+                                isDragging = false
+                                dragHandle = -1
+                            }
+
+                        } while (event.changes.any { it.pressed })
+                    }
                 }
         ) {
             val screenWidth = size.width
