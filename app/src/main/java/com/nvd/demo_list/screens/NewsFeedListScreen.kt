@@ -7,19 +7,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.EaseInOut
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.Spring.DampingRatioLowBouncy
-import androidx.compose.animation.core.Spring.DampingRatioNoBouncy
-import androidx.compose.animation.core.Spring.StiffnessLow
 import androidx.compose.animation.core.animateIntOffsetAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
@@ -40,34 +33,23 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ThumbUp
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -78,10 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -98,11 +77,10 @@ import com.nvd.demo_list.models.NewsFeedData
 import com.nvd.demo_list.models.NewsFeedItem
 import com.nvd.demo_list.models.PostPrivacy
 import com.nvd.demo_list.models.ReactionType
-import kotlinx.coroutines.delay
+import com.nvd.demo_list.ui.component.CreatePostCard
+import com.nvd.demo_list.ui.component.ZoomableImage
 import kotlinx.coroutines.launch
 import nl.birdly.zoombox.zoomable
-import kotlin.math.log
-import kotlin.math.roundToInt
 
 data class ItemSelected(
     val image: String? = null,
@@ -280,74 +258,7 @@ fun NewsFeedListScreen(
     }
 }
 
-@Composable
-fun CreatePostCard() {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 0.dp, vertical = 4.dp)
-            .statusBarsPadding(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // User avatar placeholder
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.LightGray)
-                )
 
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // "What's on your mind?" text
-                Text(
-                    text = "Bạn đang nghĩ gì?",
-                    color = Color.Gray,
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(Color(0xFFF0F2F5), RoundedCornerShape(20.dp))
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Divider()
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                CreatePostAction(
-                    icon = Icons.Default.PlayArrow,
-                    text = "Video",
-                    tint = Color(0xFFE42645)
-                )
-                CreatePostAction(
-                    icon = Icons.Default.Add,
-                    text = "Ảnh/Video",
-                    tint = Color(0xFF45BD62)
-                )
-                CreatePostAction(
-                    icon = Icons.Default.Face,
-                    text = "Cảm xúc",
-                    tint = Color(0xFFF7B928)
-                )
-            }
-        }
-    }
-}
 
 @Composable
 fun CreatePostAction(

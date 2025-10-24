@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,7 +20,9 @@ fun MainScreen(
 ) {
 
     Column(
-        modifier = Modifier.fillMaxSize().fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxSize()
+            .fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(
             16.dp,
@@ -34,10 +35,17 @@ fun MainScreen(
         }) {
             Text("Option 1")
         }
+
         Button({
             onNavigateScreen(Screen.Option2.route)
         }) {
-            Text("Option 2")
+            Text("Option 2 PDF")
+        }
+
+        Button({
+            onNavigateScreen(Screen.Option2Image.route)
+        }) {
+            Text("Option 2 Image")
         }
     }
 }

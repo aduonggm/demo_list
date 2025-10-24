@@ -13,13 +13,14 @@ import com.nvd.demo_list.screens.DetailsScreen
 import com.nvd.demo_list.screens.ImageListCropScreen
 import com.nvd.demo_list.screens.MainScreen
 import com.nvd.demo_list.screens.NewsFeedListScreen
-import com.nvd.demo_list.screens.Option2Screen
+import com.nvd.demo_list.screens.Option2ImageScreen
+import com.nvd.demo_list.screens.Option2PdfScreen
 
 sealed class Screen(val route: String) {
     object NewsFeedList : Screen("news_feed_list")
     object Option2 : Screen("option_2")
-
-    object ImageCropListScreen: Screen("image_crop_list_screen")
+    object Option2Image : Screen("option_2_image")
+    object ImageCropListScreen : Screen("image_crop_list_screen")
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -43,18 +44,23 @@ fun AppNavigation() {
                 )
             }
 
-            composable("splash"){
+            composable("splash") {
                 MainScreen {
                     navController.navigate(it)
                 }
             }
 
 
-            composable(Screen.Option2.route){
-                Option2Screen(navController = navController)
+            composable(Screen.Option2.route) {
+                //Option2Screen(navController = navController)
+                Option2PdfScreen(navController = navController)
             }
 
-
+            composable(Screen.Option2Image.route) {
+                Option2ImageScreen(
+                    navController = navController
+                )
+            }
 
             composable(
                 "details/{item}",
@@ -63,7 +69,7 @@ fun AppNavigation() {
                 val index = backStackEntry.arguments?.getInt("item")
                 Log.d("======>>>>>>> ", "AppNavigation: index found is  $index")
                 DetailsScreen(
-                    index ?: 0 ,
+                    index ?: 0,
                     this@SharedTransitionLayout,
                     this@composable
                 ) {
