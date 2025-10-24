@@ -1,5 +1,6 @@
 package com.nvd.demo_list.screens.transform
 
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -24,6 +25,8 @@ fun TransformableBox(
             .zIndex(if (controller.isZooming) 3f else 0f)
             .onGloballyPositioned {
                 controller.bounds = it.boundsInRoot()
+
+                Log.d("=======>>>>>>>> ", "TransformableBox:  new bound  ${controller.bounds}")
             }
     )
 

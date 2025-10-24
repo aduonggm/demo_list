@@ -65,6 +65,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -909,8 +910,10 @@ fun CropOverlay(
         }
     }
 }
+private const val HANDLE_TOUCH_SIZE = 120f  // vùng chạm logic (~120px)
+private val HANDLE_DRAW_SIZE = 15.dp
 
-private fun DrawScope.drawCropFrame(cropRect: Rect) {
+fun DrawScope.drawCropFrame(cropRect: Rect) {
     val strokeWidth = 2.dp.toPx()
 
     // Draw complete frame
@@ -922,114 +925,130 @@ private fun DrawScope.drawCropFrame(cropRect: Rect) {
     )
 }
 
-private fun DrawScope.drawResizeHandles(cropRect: Rect) {
-    val handleSize = 15.dp.toPx()
+ fun DrawScope.drawResizeHandles(
+    cropRect: Rect,
+    debugTouchZone: Boolean = true
+) {
+    val handleDrawSizePx = HANDLE_DRAW_SIZE.toPx()
+    val halfTouch = HANDLE_TOUCH_SIZE / 2
     val handleColor = Color.White
     val handleStroke = 2.dp.toPx()
 
-    val centerX = cropRect.left + cropRect.width / 2
-    val centerY = cropRect.top + cropRect.height / 2
+    val handles = buildHandlePositions(cropRect)
 
-    val handles = listOf(
-        // Corner handles
-        Offset(cropRect.left, cropRect.top),      // 0: top-left
-        Offset(cropRect.right, cropRect.top),     // 1: top-right
-        Offset(cropRect.left, cropRect.bottom),   // 2: bottom-left
-        Offset(cropRect.right, cropRect.bottom),  // 3: bottom-right
-        // Edge handles
-        Offset(centerX, cropRect.top),            // 4: top-center
-        Offset(centerX, cropRect.bottom),         // 5: bottom-center
-        Offset(cropRect.left, centerY),           // 6: left-center
-        Offset(cropRect.right, centerY)           // 7: right-center
-    )
+    handles.forEachIndexed { index, handle ->
+        if (debugTouchZone) {
+            // 🎨 Vẽ vùng chạm rộng — để xem dễ hơn
+            drawRect(
+                color = Color.Red.copy(alpha = 0.25f),
+                topLeft = Offset(handle.x - halfTouch, handle.y - halfTouch),
+                size = Size(HANDLE_TOUCH_SIZE, HANDLE_TOUCH_SIZE)
+            )
+        }
 
-    handles.forEach { handle ->
-        // Draw white border
+        // 🔳 Handle thật (vẽ nhỏ)
         drawRect(
             color = handleColor,
-            topLeft = Offset(
-                handle.x - handleSize / 2,
-                handle.y - handleSize / 2
-            ),
-            size = Size(handleSize, handleSize),
+            topLeft = Offset(handle.x - handleDrawSizePx / 2, handle.y - handleDrawSizePx / 2),
+            size = Size(handleDrawSizePx, handleDrawSizePx),
             style = Stroke(width = handleStroke)
-        )
-
-        // Draw black semi-transparent background
-        drawRect(
-            color = Color.Black.copy(alpha = 0.6f),
-            topLeft = Offset(
-                handle.x - handleSize / 2 + handleStroke,
-                handle.y - handleSize / 2 + handleStroke
-            ),
-            size = Size(handleSize - 2 * handleStroke, handleSize - 2 * handleStroke)
-        )
-
-        // Draw white dot in center
-        drawCircle(
-            color = Color.White,
-            radius = 3.dp.toPx(),
-            center = handle
         )
     }
 }
 
-private fun getHandleAtPosition(position: Offset, cropRect: Rect): Int {
-    val touchThreshold = 60f
-
-    val centerX = cropRect.left + cropRect.width / 2
-    val centerY = cropRect.top + cropRect.height / 2
-
-    val handles = listOf(
-        Offset(cropRect.left, cropRect.top),      // 0: top-left
-        Offset(cropRect.right, cropRect.top),     // 1: top-right
-        Offset(cropRect.left, cropRect.bottom),   // 2: bottom-left
-        Offset(cropRect.right, cropRect.bottom),  // 3: bottom-right
-        Offset(centerX, cropRect.top),            // 4: top-center
-        Offset(centerX, cropRect.bottom),         // 5: bottom-center
-        Offset(cropRect.left, centerY),           // 6: left-center
-        Offset(cropRect.right, centerY)           // 7: right-center
+ fun buildHandlePositions(cropRect: Rect): List<Offset> {
+    val cx = cropRect.left + cropRect.width / 2
+    val cy = cropRect.top + cropRect.height / 2
+    return listOf(
+        Offset(cropRect.left, cropRect.top),      // 0 top-left
+        Offset(cropRect.right, cropRect.top),     // 1 top-right
+        Offset(cropRect.left, cropRect.bottom),   // 2 bottom-left
+        Offset(cropRect.right, cropRect.bottom),  // 3 bottom-right
+        Offset(cx, cropRect.top),                 // 4 top-center
+        Offset(cx, cropRect.bottom),              // 5 bottom-center
+        Offset(cropRect.left, cy),                // 6 left-center
+        Offset(cropRect.right, cy)                // 7 right-center
     )
+}
 
-    // Check handles with larger touch area
+
+// fun DrawScope.drawResizeHandles(cropRect: Rect) {
+//    val handleSize = 15.dp.toPx()
+//    val handleColor = Color.White
+//    val handleStroke = 2.dp.toPx()
+//
+//    val centerX = cropRect.left + cropRect.width / 2
+//    val centerY = cropRect.top + cropRect.height / 2
+//
+//    val handles = listOf(
+//        // Corner handles
+//        Offset(cropRect.left, cropRect.top),      // 0: top-left
+//        Offset(cropRect.right, cropRect.top),     // 1: top-right
+//        Offset(cropRect.left, cropRect.bottom),   // 2: bottom-left
+//        Offset(cropRect.right, cropRect.bottom),  // 3: bottom-right
+//        // Edge handles
+//        Offset(centerX, cropRect.top),            // 4: top-center
+//        Offset(centerX, cropRect.bottom),         // 5: bottom-center
+//        Offset(cropRect.left, centerY),           // 6: left-center
+//        Offset(cropRect.right, centerY)           // 7: right-center
+//    )
+//
+//    handles.forEach { handle ->
+//        // Draw white border
+//        drawRect(
+//            color = handleColor,
+//            topLeft = Offset(
+//                handle.x - handleSize / 2,
+//                handle.y - handleSize / 2
+//            ),
+//            size = Size(handleSize, handleSize),
+//            style = Stroke(width = handleStroke)
+//        )
+//
+//        // Draw black semi-transparent background
+//        drawRect(
+//            color = Color.Black.copy(alpha = 0.6f),
+//            topLeft = Offset(
+//                handle.x - handleSize / 2 + handleStroke,
+//                handle.y - handleSize / 2 + handleStroke
+//            ),
+//            size = Size(handleSize - 2 * handleStroke, handleSize - 2 * handleStroke)
+//        )
+//
+//        // Draw white dot in center
+//        drawCircle(
+//            color = Color.White,
+//            radius = 3.dp.toPx(),
+//            center = handle
+//        )
+//    }
+//}
+
+ fun getHandleAtPosition(position: Offset, cropRect: Rect): Int {
+    val halfTouch = HANDLE_TOUCH_SIZE / 2
+    val handles = buildHandlePositions(cropRect)
+
     handles.forEachIndexed { index, handle ->
-        if (abs(position.x - handle.x) <= touchThreshold && abs(position.y - handle.y) <= touchThreshold) {
+        val rect = Rect(
+            handle.x - halfTouch,
+            handle.y - halfTouch,
+            handle.x + halfTouch,
+            handle.y + halfTouch
+        )
+        if (rect.contains(position)) {
             return index
         }
     }
 
-    val edgeThreshold = 20f
-
-    // Check if touching edges
-    if (position.x >= cropRect.left - touchThreshold && position.x <= cropRect.right + touchThreshold &&
-        position.y >= cropRect.top - touchThreshold && position.y <= cropRect.bottom + touchThreshold
-    ) {
-        // Touching near top/bottom edge
-        if ((abs(position.y - cropRect.top) <= edgeThreshold || abs(position.y - cropRect.bottom) <= edgeThreshold) &&
-            position.x >= cropRect.left - edgeThreshold && position.x <= cropRect.right + edgeThreshold
-        ) {
-            return if (abs(position.y - cropRect.top) <= edgeThreshold) 4 else 5
-        }
-
-        // Touching near left/right edge
-        if ((abs(position.x - cropRect.left) <= edgeThreshold || abs(position.x - cropRect.right) <= edgeThreshold) &&
-            position.y >= cropRect.top - edgeThreshold && position.y <= cropRect.bottom + edgeThreshold
-        ) {
-            return if (abs(position.x - cropRect.left) <= edgeThreshold) 6 else 7
-        }
-
-        // Touching center to move entire rect
-        if (position.x >= cropRect.left + edgeThreshold && position.x <= cropRect.right - edgeThreshold &&
-            position.y >= cropRect.top + edgeThreshold && position.y <= cropRect.bottom - edgeThreshold
-        ) {
-            return 8 // center drag
-        }
+    // Nếu không trúng handle thì kiểm tra phần thân cropRect (kéo toàn khung)
+    if (cropRect.contains(position)) {
+        return 8 // trung tâm drag
     }
 
     return -1
 }
 
-private fun updateCropRect(
+fun updateCropRect(
     currentRect: Rect,
     handleIndex: Int,
     dragAmount: Offset,
