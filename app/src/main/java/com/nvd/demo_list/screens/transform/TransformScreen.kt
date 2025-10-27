@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -35,6 +36,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
@@ -52,20 +54,26 @@ suspend fun PointerInputScope.handleTransformGestures(
     cropRect: Rect
 ) {
     var controller: TransformController? = null
+
     awaitEachGesture {
-        awaitFirstDown()
+        val down = awaitFirstDown(requireUnconsumed = false)
         Log.d("===>>>>>> ", "handleTransformGestures: on down start ")
 
-        var touchCount = 1
         do {
             val event = awaitPointerEvent()
-            touchCount = event.changes.count { it.pressed }
+            val touchCount = event.changes.count { it.pressed }
             val touches = event.changes
             val pos1 = touches[0].position
-            val handle = getHandleAtPosition(pos1, cropRect)
-            Log.d("=====>>>>>>>>>>", "handleTransformGestures:  handle  found is  $handle")
-            if (controller == null ) {
-                val found = controllers.filter { it.bounds?.contains(pos1) == true }.sortedBy { !it.isZooming }
+            val handle = getHandleAtPosition(down.position, cropRect)
+            Log.d(
+                "=====>>>>>>>>>>",
+                "handleTransformGestures:  handle  found is  ${(cropRect.contains(pos1) && touchCount == 1)}  $handle"
+            )
+
+            if ((handle >= 0 || cropRect.contains(pos1)) && touchCount == 1) return@awaitEachGesture
+            if (controller == null) {
+                val found = controllers.filter { it.bounds?.contains(pos1) == true }
+                    .sortedBy { !it.isZooming }
                 controller = found.firstOrNull()
             }
             if (touchCount >= 2 || (touchCount == 1 && controller != null && controller!!.isZooming)) {
@@ -161,33 +169,47 @@ fun Modifier.drawCrop(
         .pointerInput(Unit) {
             handleTransformGestures(controllers, scope, cropRect)
         }
-//        .pointerInput(Unit) {
-//            detectDragGestures(
-//                onDragStart = { offset ->
-//                    dragHandle = getHandleAtPosition(offset, cropRect)
-//                    isDragging = dragHandle >= 0
-//                },
-//                onDragEnd = {
-//                    isDragging = false
-//                    dragHandle = -1
-//                },
-//                onDrag = { _, dragAmount ->
-//                    if (isDragging && dragHandle >= 0) {
-//                        val imageRect = Rect(
-//                            0f, 0f, size.width.toFloat(),
-//                            size.height.toFloat()
-//                        )
-//                        cropRect = updateCropRect(
-//                            cropRect,
-//                            dragHandle,
-//                            dragAmount,
-//                            size.toSize(),
-//                            imageRect
-//                        )
-//                    }
-//                }
-//            )
-//        }
+        .pointerInput(Unit) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+
+                // Kiểm tra ngay khi chạm xuống xem có chạm handle không
+                dragHandle = getHandleAtPosition(down.position, cropRect)
+                isDragging = dragHandle >= 0
+                if (!isDragging) return@awaitEachGesture // Nếu không chạm handle, kết thúc gesture luôn
+
+                do {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull() ?: break
+                    val pointerCount = event.changes.count { it.pressed }
+
+                    if (pointerCount == 1 && isDragging && dragHandle >= 0) {
+                        val dragAmount = change.positionChange()
+                        val imageRect = Rect(
+                            left = 0f,
+                            top = 0f,
+                            right = size.width.toFloat(),
+                            bottom = size.height.toFloat()
+                        )
+                        cropRect = updateCropRect(
+                            cropRect,
+                            dragHandle,
+                            dragAmount,
+                            size.toSize(),
+                            imageRect
+                        )
+                        change.consume()
+                    }
+
+                    // Reset khi thả tay
+                    if (event.changes.none { it.pressed }) {
+                        isDragging = false
+                        dragHandle = -1
+                    }
+
+                } while (event.changes.any { it.pressed })
+            }
+        }
         .drawWithContent {
             drawContent() // vẽ nội dung bên dưới (ví dụ hình ảnh)
 

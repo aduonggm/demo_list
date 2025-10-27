@@ -25,9 +25,7 @@ fun TransformableBox(
             .zIndex(if (controller.isZooming) 3f else 0f)
             .onGloballyPositioned {
                 controller.bounds = it.boundsInRoot()
-
-                Log.d("=======>>>>>>>> ", "TransformableBox:  new bound  ${controller.bounds}")
-            }
+   }
     )
 
 }
