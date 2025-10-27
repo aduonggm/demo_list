@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -385,8 +384,7 @@ fun NewsFeedImageCard(
     onLongClick: () -> Unit = {},
     onZoomChange: (Boolean) -> Unit = {},
     onResetZoom: (() -> Unit) -> Unit = {},
-    onZoomStateUpdate: (ZoomState) -> Unit = {},
-    onPdfViewerSizeChanged: (width: Int, height: Int, offsetY: Int) -> Unit = { _, _, _ -> }
+    onZoomStateUpdate: (MutableZoomState) -> Unit = {},
 ) {
     val zoomState = rememberMutableZoomState()
     val isZooming = zoomState.value.scale > 1f
@@ -395,7 +393,7 @@ fun NewsFeedImageCard(
     onZoomChange(isZooming)
 
     // Notify parent about zoom state changes for cropping
-    onZoomStateUpdate(zoomState.value)
+    onZoomStateUpdate(zoomState)
 
     // Expose reset function to parent
     onResetZoom {
@@ -410,17 +408,10 @@ fun NewsFeedImageCard(
 
     item.postImage?.let {
         ZoomableImage(
+            zoomState = zoomState,
             imageUrl = it,
-            modifier = Modifier
-                .fillMaxWidth()
-                .onGloballyPositioned { coordinates ->
-                    val position = coordinates.positionInWindow()
-                    val size = coordinates.size
-                    onPdfViewerSizeChanged(size.width, size.height, position.y.toInt())
-                },
+            modifier = Modifier.fillMaxWidth(),
             onLongClick = onLongClick,
-            onZoomChange = onZoomChange,
-            onResetZoom = onResetZoom
         )
     }
 

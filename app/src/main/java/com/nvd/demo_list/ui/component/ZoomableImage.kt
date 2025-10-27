@@ -42,6 +42,7 @@ import com.nvd.demo_list.screens.ItemSelected
 import com.nvd.demo_list.utils.ImageCacheManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import nl.birdly.zoombox.MutableZoomState
 import nl.birdly.zoombox.ZoomState
 import nl.birdly.zoombox.gesture.condition.TouchCondition
 import nl.birdly.zoombox.gesture.transform.TransformGestureHandler
@@ -96,11 +97,10 @@ fun ZoomableImage(
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ZoomableImage(
+    zoomState: MutableZoomState,
     imageUrl: String,
     modifier: Modifier,
     onLongClick: () -> Unit = {},
-    onZoomChange: (Boolean) -> Unit = {},
-    onResetZoom: (() -> Unit) -> Unit = {}
 ) {
     // Khởi tạo bitmap từ cache ngay trong remember để tránh flash loading khi scroll
     var bitmap by remember(imageUrl) {
@@ -112,21 +112,12 @@ fun ZoomableImage(
         mutableStateOf(ImageCacheManager.getBitmap(imageUrl) == null)
     }
 
-    val zoomState = rememberMutableZoomState()
     val isZooming = zoomState.value.scale > 1f
 
     // Track long press state
     var downTime by remember { mutableLongStateOf(0L) }
     var isLongPressTriggered by remember { mutableStateOf(false) }
     var isSingleTouch by remember { mutableStateOf(true) }
-
-    // Notify parent about zoom state
-    onZoomChange(isZooming)
-
-    // Expose reset function to parent
-    onResetZoom {
-        zoomState.value = ZoomState()
-    }
 
     // Load bitmap directly to maintain quality when zooming (similar to PdfViewer)
     // Sử dụng cache để tránh load lại khi scroll
