@@ -15,10 +15,6 @@ import com.nvd.demo_list.screens.MainScreen
 import com.nvd.demo_list.screens.NewsFeedListScreen
 import com.nvd.demo_list.screens.Option2ImageScreen
 import com.nvd.demo_list.screens.Option2PdfScreen
-import com.nvd.demo_list.screens.Option2Screen
-import com.nvd.demo_list.screens.toturial.GesturePropagationExample
-import com.nvd.demo_list.screens.toturial.Tutorial5_6Screen2
-import com.nvd.demo_list.screens.transform.ParentScreen
 
 sealed class Screen(val route: String) {
     object NewsFeedList : Screen("news_feed_list")
@@ -50,10 +46,10 @@ fun AppNavigation() {
 
             composable("splash"){
 //                Tutorial5_6Screen2()
-                ParentScreen()
-//                MainScreen {
-//                    navController.navigate(it)
-//                }
+//                ParentScreen()
+                MainScreen {
+                    navController.navigate(it)
+                }
             }
 
 

@@ -41,6 +41,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import nl.birdly.zoombox.MutableZoomState
 
 @Composable
 fun Option2PdfScreen(
@@ -59,6 +60,7 @@ fun Option2PdfScreen(
     var resetZoomCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
     var isLongClick by remember { mutableStateOf(false) }
     var overlayVisible by remember { mutableStateOf(true) }
+    var currentZoomState by remember { mutableStateOf<MutableZoomState?>(null) }
 
     // Mutable list to store URIs of cropped images
     val croppedImageUris = remember { mutableListOf<Uri>() }
@@ -133,6 +135,9 @@ fun Option2PdfScreen(
                         },
                         onResetZoom = { resetFn ->
                             resetZoomCallback = resetFn
+                        },
+                        onZoomStateUpdate = {
+                            currentZoomState = it
                         }
                     )
                 }
@@ -150,6 +155,7 @@ fun Option2PdfScreen(
                 context = context,
                 imageUrl = currentCroppingImageUrl!!,
                 isVisible = overlayVisible,
+                zoomState = currentZoomState,
                 onCancel = {
                     // Reset zoom state before closing overlay
                     resetZoomStates()

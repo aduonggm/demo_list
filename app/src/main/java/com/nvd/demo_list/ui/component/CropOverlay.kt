@@ -3,7 +3,9 @@ package com.nvd.demo_list.ui.component
 import android.content.Context
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -28,11 +30,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.zIndex
+import nl.birdly.zoombox.MutableZoomState
+import nl.birdly.zoombox.ZoomState
 import kotlin.math.abs
 
 @Composable
@@ -40,6 +45,7 @@ fun CropOverlay(
     context: Context,
     imageUrl: String,
     modifier: Modifier = Modifier,
+    zoomState: MutableZoomState? = null,
     isVisible: Boolean = true,
     onCancel: () -> Unit = {},
     onCrop: (Rect) -> Unit = {}
@@ -59,7 +65,71 @@ fun CropOverlay(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
-                    detectDragGestures(
+                    detectTransformGestures { centroid, pan, zoom, rotation ->
+                        if (zoomState != null) {
+                            val current = zoomState.value
+                            val newScale = (current.scale * zoom).coerceIn(1f, 5f)
+                            val panAdjusted = pan
+                            val newOffset = if (zoom != 1f) {
+                                val scaleDiff = newScale / current.scale
+                                ((current.offset + centroid - panAdjusted) * scaleDiff - centroid)
+                            } else {
+                                current.offset - panAdjusted
+                            }
+
+                            if (newScale > 1f) {
+                                zoomState.value = ZoomState(
+                                    scale = newScale,
+                                    offset = newOffset
+                                )
+                            } else {
+                                zoomState.value = ZoomState()
+                            }
+
+                        }
+                    }
+                }
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+
+                        // Kiểm tra ngay khi chạm xuống xem có chạm handle không
+                        dragHandle = getHandleAtPosition(down.position, cropRect)
+                        isDragging = dragHandle >= 0
+                        if (!isDragging) return@awaitEachGesture // Nếu không chạm handle, kết thúc gesture luôn
+
+                        do {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull() ?: break
+                            val pointerCount = event.changes.count { it.pressed }
+
+                            if (pointerCount == 1 && isDragging && dragHandle >= 0) {
+                                val dragAmount = change.positionChange()
+                                val imageRect = Rect(
+                                    left = 0f,
+                                    top = 0f,
+                                    right = size.width.toFloat(),
+                                    bottom = size.height.toFloat()
+                                )
+                                cropRect = updateCropRect(
+                                    cropRect,
+                                    dragHandle,
+                                    dragAmount,
+                                    size.toSize(),
+                                    imageRect
+                                )
+                                change.consume()
+                            }
+
+                            // Reset khi thả tay
+                            if (event.changes.none { it.pressed }) {
+                                isDragging = false
+                                dragHandle = -1
+                            }
+
+                        } while (event.changes.any { it.pressed })
+                    }
+                    /*detectDragGestures(
                         onDragStart = { offset ->
                             dragHandle = getHandleAtPosition(offset, cropRect)
                             isDragging = dragHandle >= 0
@@ -85,7 +155,7 @@ fun CropOverlay(
                                 )
                             }
                         }
-                    )
+                    )*/
                 }
         ) {
             val screenWidth = size.width

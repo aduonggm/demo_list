@@ -45,10 +45,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import com.nvd.demo_list.R
-import com.nvd.demo_list.screens.drawCropFrame
-import com.nvd.demo_list.screens.drawResizeHandles
-import com.nvd.demo_list.screens.getHandleAtPosition
-import com.nvd.demo_list.screens.updateCropRect
+//import com.nvd.demo_list.screens.drawCropFrame
+//import com.nvd.demo_list.screens.drawResizeHandles
+//import com.nvd.demo_list.screens.getHandleAtPosition
+//import com.nvd.demo_list.screens.updateCropRect
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
@@ -213,17 +213,17 @@ fun Modifier.drawCrop(): Modifier {
                     size = Size(screenWidth - cropRect.right, cropRect.height)
                 ) // right
 
-                // 🟦 Vẽ khung crop
-                drawCropFrame(cropRect)
-
-                // 🔘 Vẽ các handle resize
-                drawResizeHandles(cropRect)
+//                // 🟦 Vẽ khung crop
+//                drawCropFrame(cropRect)
+//
+//                // 🔘 Vẽ các handle resize
+//                drawResizeHandles(cropRect)
             }
         }
         .pointerInput(Unit) {
             detectDragGestures(
                 onDragStart = { offset ->
-                    dragHandle = getHandleAtPosition(offset, cropRect)
+                    //dragHandle = getHandleAtPosition(offset, cropRect)
                     isDragging = dragHandle >= 0
                 },
                 onDragEnd = {
@@ -236,13 +236,13 @@ fun Modifier.drawCrop(): Modifier {
                             0f, 0f, size.width.toFloat(),
                             size.height.toFloat()
                         )
-                        cropRect = updateCropRect(
-                            cropRect,
-                            dragHandle,
-                            dragAmount,
-                            size.toSize(),
-                            imageRect
-                        )
+//                        cropRect = updateCropRect(
+//                            cropRect,
+//                            dragHandle,
+//                            dragAmount,
+//                            size.toSize(),
+//                            imageRect
+//                        )
                     }
                 }
             )

@@ -1,16 +1,10 @@
 package com.nvd.demo_list.ui.component
 
-import android.graphics.BitmapFactory
 import android.util.Log
 import android.view.MotionEvent
 import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,16 +13,12 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerInputScope
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import com.nvd.demo_list.R
 import com.nvd.demo_list.models.NewsFeedItem
 import com.nvd.demo_list.screens.ActionButtons
@@ -36,16 +26,13 @@ import com.nvd.demo_list.screens.ItemSelected
 import com.nvd.demo_list.screens.PostContent
 import com.nvd.demo_list.screens.PostHeader
 import com.nvd.demo_list.screens.ReactionsAndStats
-import com.nvd.demo_list.utils.ImageCacheManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import nl.birdly.zoombox.MutableZoomState
 import nl.birdly.zoombox.ZoomState
 import nl.birdly.zoombox.gesture.condition.TouchCondition
 import nl.birdly.zoombox.gesture.transform.TransformGestureHandler
 import nl.birdly.zoombox.rememberMutableZoomState
 import nl.birdly.zoombox.zoomable
 import java.io.File
-import java.net.URL
 
 
 const val LONG_PRESS_TIME = 500L
@@ -233,7 +220,7 @@ fun NewsFeedPdfCardNew(
     onLongClick: () -> Unit = {},
     onZoomChange: (Boolean) -> Unit = {},
     onResetZoom: (() -> Unit) -> Unit = {},
-    onZoomStateUpdate: (ZoomState) -> Unit = {},
+    onZoomStateUpdate: (MutableZoomState) -> Unit = {},
 ) {
     val zoomState = rememberMutableZoomState()
     val isZooming = zoomState.value.scale > 1f
@@ -242,7 +229,7 @@ fun NewsFeedPdfCardNew(
     onZoomChange(isZooming)
 
     // Notify parent about zoom state changes for cropping
-    onZoomStateUpdate(zoomState.value)
+    onZoomStateUpdate(zoomState)
 
     // Expose reset function to parent
     onResetZoom {
