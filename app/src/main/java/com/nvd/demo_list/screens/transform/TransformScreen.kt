@@ -48,7 +48,8 @@ import kotlinx.coroutines.CoroutineScope
 
 suspend fun PointerInputScope.handleTransformGestures(
     controllers: List<TransformController>,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    cropRect: Rect
 ) {
     var controller: TransformController? = null
     awaitEachGesture {
@@ -61,17 +62,12 @@ suspend fun PointerInputScope.handleTransformGestures(
             touchCount = event.changes.count { it.pressed }
             val touches = event.changes
             val pos1 = touches[0].position
-            if (controller == null) {
-                val found = controllers.filter { it.bounds?.contains(pos1) == true }
-                    .sortedBy { !it.isZooming }
-
-                Log.d(
-                    "========>>>>>> ",
-                    "handleTransformGestures: zooming sort  ${found.map { !it.isZooming }}"
-                )
+            val handle = getHandleAtPosition(pos1, cropRect)
+            Log.d("=====>>>>>>>>>>", "handleTransformGestures:  handle  found is  $handle")
+            if (controller == null ) {
+                val found = controllers.filter { it.bounds?.contains(pos1) == true }.sortedBy { !it.isZooming }
                 controller = found.firstOrNull()
             }
-
             if (touchCount >= 2 || (touchCount == 1 && controller != null && controller!!.isZooming)) {
                 // Khi có 2 ngón → xử lý zoom
                 val zoom = event.calculateZoom()
@@ -163,35 +159,35 @@ fun Modifier.drawCrop(
 
     val e = Modifier
         .pointerInput(Unit) {
-            handleTransformGestures(controllers,scope)
+            handleTransformGestures(controllers, scope, cropRect)
         }
-        .pointerInput(Unit) {
-            detectDragGestures(
-                onDragStart = { offset ->
-                    dragHandle = getHandleAtPosition(offset, cropRect)
-                    isDragging = dragHandle >= 0
-                },
-                onDragEnd = {
-                    isDragging = false
-                    dragHandle = -1
-                },
-                onDrag = { _, dragAmount ->
-                    if (isDragging && dragHandle >= 0) {
-                        val imageRect = Rect(
-                            0f, 0f, size.width.toFloat(),
-                            size.height.toFloat()
-                        )
-                        cropRect = updateCropRect(
-                            cropRect,
-                            dragHandle,
-                            dragAmount,
-                            size.toSize(),
-                            imageRect
-                        )
-                    }
-                }
-            )
-        }
+//        .pointerInput(Unit) {
+//            detectDragGestures(
+//                onDragStart = { offset ->
+//                    dragHandle = getHandleAtPosition(offset, cropRect)
+//                    isDragging = dragHandle >= 0
+//                },
+//                onDragEnd = {
+//                    isDragging = false
+//                    dragHandle = -1
+//                },
+//                onDrag = { _, dragAmount ->
+//                    if (isDragging && dragHandle >= 0) {
+//                        val imageRect = Rect(
+//                            0f, 0f, size.width.toFloat(),
+//                            size.height.toFloat()
+//                        )
+//                        cropRect = updateCropRect(
+//                            cropRect,
+//                            dragHandle,
+//                            dragAmount,
+//                            size.toSize(),
+//                            imageRect
+//                        )
+//                    }
+//                }
+//            )
+//        }
         .drawWithContent {
             drawContent() // vẽ nội dung bên dưới (ví dụ hình ảnh)
 
