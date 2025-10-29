@@ -33,19 +33,25 @@ fun MainScreen(
         Button({
             onNavigateScreen(Screen.NewsFeedList.route)
         }) {
-            Text("Option 1")
+            Text("Click to zoom image")
         }
 
-        Button({
-            onNavigateScreen(Screen.Option2.route)
-        }) {
-            Text("Option 2 PDF")
-        }
+//        Button({
+//            onNavigateScreen(Screen.Option2.route)
+//        }) {
+//            Text("Option 2 PDF")
+//        }
 
         Button({
             onNavigateScreen(Screen.Option2Image.route)
         }) {
-            Text("Option 2 Image")
+            Text("Pinch to zoom image")
+        }
+
+        Button({
+            onNavigateScreen(Screen.MemoScreen.route)
+        }) {
+            Text("Memo")
         }
     }
 }

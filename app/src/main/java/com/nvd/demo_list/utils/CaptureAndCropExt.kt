@@ -1,6 +1,7 @@
 package com.nvd.demo_list.utils
 
 import android.app.Activity
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
@@ -76,6 +77,8 @@ suspend fun captureAndSaveCropArea(
                 cropHeight
             )
 
+            val folderName = "DemoListCaptures" // 👈 folder riêng trong Pictures
+
             // Save to MediaStore
             val contentValues = ContentValues().apply {
                 put(
@@ -83,7 +86,7 @@ suspend fun captureAndSaveCropArea(
                     "capture_${System.currentTimeMillis()}.jpg"
                 )
                 put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/$folderName")
             }
 
             val uri = context.contentResolver.insert(
@@ -315,4 +318,39 @@ suspend fun cropAndSaveBitmap(
             return@withContext false
         }
     }
+}
+
+fun getAllCroppedImages(context: Context, folderName: String = "DemoListCaptures"): List<Uri> {
+    val imageUris = mutableListOf<Uri>()
+    val projection = arrayOf(
+        MediaStore.Images.Media._ID,
+        MediaStore.Images.Media.DISPLAY_NAME,
+        MediaStore.Images.Media.RELATIVE_PATH
+    )
+
+    val selection = "${MediaStore.Images.Media.RELATIVE_PATH} LIKE ?"
+    val selectionArgs = arrayOf("%${Environment.DIRECTORY_PICTURES}/$folderName%")
+
+    val sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC"
+
+    context.contentResolver.query(
+        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+        projection,
+        selection,
+        selectionArgs,
+        sortOrder
+    )?.use { cursor ->
+        val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+        while (cursor.moveToNext()) {
+            val id = cursor.getLong(idColumn)
+            val uri = ContentUris.withAppendedId(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                id
+            )
+            imageUris.add(uri)
+        }
+    }
+
+    Log.d("GetImages", "📷 Found ${imageUris.size} images in $folderName")
+    return imageUris
 }
