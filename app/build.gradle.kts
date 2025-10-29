@@ -61,4 +61,6 @@ dependencies {
     implementation("com.github.pratikksahu:JetPDFVue:1.0.7")
     implementation("io.github.grizzi91:bouquet:1.1.2")
     implementation ("com.github.mennovogel:zoom-compose:1.1")
+    implementation("com.google.code.gson:gson:2.10.1")
+    implementation(libs.reorderable)
 }

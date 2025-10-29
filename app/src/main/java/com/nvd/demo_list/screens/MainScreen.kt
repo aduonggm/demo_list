@@ -47,5 +47,11 @@ fun MainScreen(
         }) {
             Text("Option 2 Image")
         }
+
+        Button({
+            onNavigateScreen(Screen.MemoScreen.route)
+        }) {
+            Text("Memo")
+        }
     }
 }

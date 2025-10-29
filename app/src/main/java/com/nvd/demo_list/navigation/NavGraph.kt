@@ -15,12 +15,14 @@ import com.nvd.demo_list.screens.MainScreen
 import com.nvd.demo_list.screens.NewsFeedListScreen
 import com.nvd.demo_list.screens.Option2ImageScreen
 import com.nvd.demo_list.screens.Option2PdfScreen
+import com.nvd.demo_list.screens.memo.MemoScreen
 
 sealed class Screen(val route: String) {
     object NewsFeedList : Screen("news_feed_list")
     object Option2 : Screen("option_2")
     object Option2Image : Screen("option_2_image")
     object ImageCropListScreen : Screen("image_crop_list_screen")
+    object MemoScreen : Screen("memo_screen")
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -81,6 +83,14 @@ fun AppNavigation() {
 
             composable(Screen.ImageCropListScreen.route) {
                 ImageListCropScreen(
+                    onBackClick = {
+                        navController.navigateUp()
+                    }
+                )
+            }
+
+            composable(Screen.MemoScreen.route) {
+                MemoScreen(
                     onBackClick = {
                         navController.navigateUp()
                     }
