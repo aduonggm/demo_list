@@ -1,6 +1,6 @@
 package com.nvd.demo_list.screens.memo
 
-import androidx.compose.animation.core.animateDpAsState
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -18,74 +18,135 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import sh.calvin.reorderable.ReorderableItem
-import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ListMemoScreen(
-    onNavigateToAddMemo: ((String?) -> Unit)? = null,
-    onNavigateToDeleteMemo: (() -> Unit)? = null,
-    onNavigateToShareMemo: (() -> Unit)? = null
+fun DeleteMemoScreen(
+    viewModel: MemoViewModel,
+    onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
-    val viewModel = remember { MemoViewModel(context) }
 
-    val lazyListState = rememberLazyListState()
-    val hapticFeedback = LocalHapticFeedback.current
-
-    val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
-        // Update the list
-        viewModel.reorderMemo(from.index, to.index)
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
-        // Memo list
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Delete",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+//                actions = {
+//                    TextButton(
+//                        onClick = onBackClick
+//                    ) {
+//                        Text(
+//                            text = "Hoàn thành",
+//                            style = MaterialTheme.typography.bodyMedium,
+//                            color = MaterialTheme.colorScheme.primary
+//                        )
+//                    }
+//                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            )
+        },
+        bottomBar = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(16.dp)
+            ) {
+                Button(
+                    onClick = {
+                        if (viewModel.memos.isNotEmpty()) {
+                            viewModel.memos.forEach { memo ->
+                                viewModel.deleteMemo(memo)
+                            }
+                            Toast.makeText(
+                                context,
+                                "All memos deleted",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            onBackClick()
+                        } else {
+                            Toast.makeText(
+                                context,
+                                "No memos to delete",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = viewModel.memos.isNotEmpty(),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFF44336),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete All",
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Delete All",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color.White)
+                .padding(paddingValues)
         ) {
             if (viewModel.memos.isEmpty()) {
                 Text(
-                    text = "No notes yet. Please add your first note!",
+                    text = "No memos to delete",
                     style = MaterialTheme.typography.bodyLarge,
                     color = Color.Gray,
                     modifier = Modifier
@@ -94,7 +155,6 @@ fun ListMemoScreen(
                 )
             } else {
                 LazyColumn(
-                    state = lazyListState,
                     modifier = Modifier
                         .fillMaxSize()
                         .background(color = Color(0xFFE3E3E3)),
@@ -107,116 +167,38 @@ fun ListMemoScreen(
                     ),
                 ) {
                     items(viewModel.memos, key = { it.id }) { memo ->
-                        ReorderableItem(reorderableLazyListState, key = memo.id) { isDragging ->
-                            val elevation by animateDpAsState(if (isDragging) 4.dp else 0.dp)
-                            Surface(shadowElevation = elevation) {
-                                MemoItem(
-                                    modifier = Modifier.longPressDraggableHandle(
-                                        onDragStarted = {
-                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-                                        },
-                                        onDragStopped = {
-                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureEnd)
-                                        }
-                                    ),
-                                    memo = memo,
-                                    viewModel = viewModel,
-                                    onEditClick = {
-                                        onNavigateToAddMemo?.invoke(memo.id)
-                                    }
-                                )
+                        DeleteMemoItem(
+                            memo = memo,
+                            onDeleteClick = {
+                                viewModel.deleteMemo(memo)
+                                Toast.makeText(
+                                    context,
+                                    "Memo deleted",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
-                        }
+                        )
                     }
                 }
             }
-        }
-
-        // Delete and Share Group - Left side
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Delete All Button
-            FloatingActionButton(
-                onClick = {
-                    onNavigateToDeleteMemo?.invoke()
-                },
-                shape = CircleShape,
-                containerColor = Color(0xFFF44336)
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete All",
-                    tint = Color.White
-                )
-            }
-
-            // Share Button
-            FloatingActionButton(
-                onClick = {
-                    onNavigateToShareMemo?.invoke()
-                },
-                shape = CircleShape,
-                containerColor = Color(0xFF2196F3)
-            ) {
-                Icon(
-                    Icons.Default.Share,
-                    contentDescription = "Share All",
-                    tint = Color.White
-                )
-            }
-        }
-
-        // Add Button - Right side
-        FloatingActionButton(
-            onClick = {
-                onNavigateToAddMemo?.invoke(null)
-            },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-            shape = CircleShape,
-            containerColor = Color(0xFF4CAF50)
-        ) {
-            Icon(
-                Icons.Default.Add,
-                contentDescription = "Add New Memo",
-                tint = Color.White
-            )
         }
     }
 }
 
 @Composable
-private fun MemoItem(
-    modifier: Modifier = Modifier,
+private fun DeleteMemoItem(
     memo: Memo,
-    viewModel: MemoViewModel,
-    onEditClick: () -> Unit
+    onDeleteClick: () -> Unit
 ) {
     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-    val dateTimeFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
     Row(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .background(color = Color.White)
-            .padding(vertical = 8.dp),
+            .padding(vertical = 8.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-
-        RadioButton(
-            selected = memo.isCompleted,
-            onClick = { viewModel.toggleMemoCompletion(memo) },
-            colors = RadioButtonDefaults.colors(
-                selectedColor = Color(0xFF4CAF50),
-                unselectedColor = Color.Gray
-            )
-        )
-
         Column(
             modifier = Modifier.weight(1f)
         ) {
@@ -277,19 +259,18 @@ private fun MemoItem(
             }
         }
 
+        Spacer(modifier = Modifier.width(12.dp))
 
-        // Action buttons
         IconButton(
-            onClick = {
-                viewModel.startEditing(memo)
-                onEditClick()
-            }
+            onClick = onDeleteClick
         ) {
             Icon(
-                Icons.Outlined.Edit,
-                contentDescription = "Edit",
-                tint = Color.Gray
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Delete",
+                tint = Color(0xFFF44336),
+                modifier = Modifier.size(24.dp)
             )
         }
     }
 }
+

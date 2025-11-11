@@ -1,6 +1,7 @@
 package com.nvd.demo_list.screens.memo
 
 import android.content.Context
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -9,6 +10,7 @@ import java.util.Date
 
 class MemoViewModel(private val context: Context) : ViewModel() {
     private val repository = MemoRepository(context)
+    private val imageManager = com.nvd.demo_list.utils.ImageManager(context)
     
     private var _memos by mutableStateOf<List<Memo>>(emptyList())
     val memos: List<Memo> get() = _memos
@@ -24,7 +26,34 @@ class MemoViewModel(private val context: Context) : ViewModel() {
     }
     
     private fun loadMemos() {
-        _memos = repository.loadMemos()
+        val loadedMemos = repository.loadMemos()
+        // Migrate any content URIs to app storage
+        _memos = loadedMemos.map { memo ->
+            if (memo.imageUris.any { imageManager.isContentUri(it) }) {
+                val migratedUris = memo.imageUris.map { uriString ->
+                    if (imageManager.isContentUri(uriString)) {
+                        // Try to migrate content URI to app storage
+                        try {
+                            val sourceUri = Uri.parse(uriString)
+                            val persistentUri = imageManager.copyUriToAppStorage(sourceUri)
+                            persistentUri?.toString() ?: uriString
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            uriString
+                        }
+                    } else {
+                        uriString
+                    }
+                }
+                memo.copy(imageUris = migratedUris)
+            } else {
+                memo
+            }
+        }
+        // Save migrated memos if any were migrated
+        if (_memos != loadedMemos) {
+            saveMemos()
+        }
     }
     
     private fun saveMemos() {
@@ -109,6 +138,24 @@ class MemoViewModel(private val context: Context) : ViewModel() {
             newList.add(toIndex, item)
             _memos = newList
             saveMemos()
+        }
+    }
+
+    fun deleteAllMemos() {
+        _memos = emptyList()
+        repository.clearMemos()
+    }
+
+    fun getShareText(): String {
+        if (_memos.isEmpty()) {
+            return "No memos to share"
+        }
+        val dateFormat = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+        return _memos.joinToString("\n\n") { memo ->
+            val status = if (memo.isCompleted) "✓ Completed" else "○ Pending"
+            val dueDateText = memo.dueDate?.let { "Due: ${dateFormat.format(it)}" } ?: ""
+            val imageCount = if (memo.imageUris.isNotEmpty()) " [${memo.imageUris.size} image(s)]" else ""
+            "$status\n${memo.content}\n$dueDateText$imageCount"
         }
     }
 }

@@ -72,4 +72,36 @@ class ImageManager(private val context: Context) {
             null
         }
     }
+    
+    /**
+     * Copy image from content URI to app storage and return the FileProvider URI
+     * This ensures the image persists even after the app is closed
+     */
+    fun copyUriToAppStorage(sourceUri: Uri): Uri? {
+        return try {
+            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val imageFileName = "memo_${timeStamp}_${UUID.randomUUID()}.jpg"
+            val destFile = File(imagesDir, imageFileName)
+            
+            // Copy the file
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                FileOutputStream(destFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            
+            // Return FileProvider URI
+            getImageUri(destFile)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+    
+    /**
+     * Check if URI is a content URI (temporary) or file URI (persistent)
+     */
+    fun isContentUri(uriString: String): Boolean {
+        return uriString.startsWith("content://")
+    }
 }

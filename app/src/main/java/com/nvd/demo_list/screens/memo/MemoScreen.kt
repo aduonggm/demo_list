@@ -47,7 +47,9 @@ import java.io.File
 @Composable
 fun MemoScreen(
     onBackClick: () -> Unit = {},
-    onNavigateToAddMemo: ((String?) -> Unit)? = null
+    onNavigateToAddMemo: ((String?) -> Unit)? = null,
+    onNavigateToDeleteMemo: (() -> Unit)? = null,
+    onNavigateToShareMemo: (() -> Unit)? = null
 ) {
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
@@ -126,7 +128,9 @@ fun MemoScreen(
             ) { page ->
                 when (page) {
                     0 -> ListMemoScreen(
-                        onNavigateToAddMemo = onNavigateToAddMemo
+                        onNavigateToAddMemo = onNavigateToAddMemo,
+                        onNavigateToDeleteMemo = onNavigateToDeleteMemo,
+                        onNavigateToShareMemo = onNavigateToShareMemo
                     )
                     1 -> CropImageStorageScreen()
                     2 -> TakePictureScreen()

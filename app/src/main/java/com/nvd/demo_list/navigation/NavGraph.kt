@@ -16,8 +16,10 @@ import com.nvd.demo_list.screens.NewsFeedListScreen
 import com.nvd.demo_list.screens.Option2ImageScreen
 import com.nvd.demo_list.screens.Option2PdfScreen
 import com.nvd.demo_list.screens.memo.AddMemoScreen
+import com.nvd.demo_list.screens.memo.DeleteMemoScreen
 import com.nvd.demo_list.screens.memo.MemoScreen
 import com.nvd.demo_list.screens.memo.MemoViewModel
+import com.nvd.demo_list.screens.memo.ShareMemoScreen
 import com.nvd.demo_list.screens.splash.SplashScreen
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -31,6 +33,8 @@ sealed class Screen(val route: String) {
     object ImageCropListScreen : Screen("image_crop_list_screen")
     object MemoScreen : Screen("memo_screen")
     object AddMemoScreen : Screen("add_memo_screen")
+    object DeleteMemoScreen : Screen("delete_memo_screen")
+    object ShareMemoScreen : Screen("share_memo_screen")
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -119,6 +123,12 @@ fun AppNavigation() {
                         } else {
                             navController.navigate(Screen.AddMemoScreen.route)
                         }
+                    },
+                    onNavigateToDeleteMemo = {
+                        navController.navigate(Screen.DeleteMemoScreen.route)
+                    },
+                    onNavigateToShareMemo = {
+                        navController.navigate(Screen.ShareMemoScreen.route)
                     }
                 )
             }
@@ -146,6 +156,30 @@ fun AppNavigation() {
                 val viewModel = remember { MemoViewModel(context) }
                 
                 AddMemoScreen(
+                    viewModel = viewModel,
+                    onBackClick = {
+                        navController.navigateUp()
+                    }
+                )
+            }
+
+            composable(Screen.DeleteMemoScreen.route) {
+                val context = LocalContext.current
+                val viewModel = remember { MemoViewModel(context) }
+                
+                DeleteMemoScreen(
+                    viewModel = viewModel,
+                    onBackClick = {
+                        navController.navigateUp()
+                    }
+                )
+            }
+
+            composable(Screen.ShareMemoScreen.route) {
+                val context = LocalContext.current
+                val viewModel = remember { MemoViewModel(context) }
+                
+                ShareMemoScreen(
                     viewModel = viewModel,
                     onBackClick = {
                         navController.navigateUp()
