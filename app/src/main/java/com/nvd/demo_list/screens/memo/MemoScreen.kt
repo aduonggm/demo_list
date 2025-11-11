@@ -46,7 +46,8 @@ import java.io.File
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemoScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onNavigateToAddMemo: ((String?) -> Unit)? = null
 ) {
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
@@ -124,7 +125,9 @@ fun MemoScreen(
                 userScrollEnabled = false
             ) { page ->
                 when (page) {
-                    0 -> ListMemoScreen()
+                    0 -> ListMemoScreen(
+                        onNavigateToAddMemo = onNavigateToAddMemo
+                    )
                     1 -> CropImageStorageScreen()
                     2 -> TakePictureScreen()
                 }

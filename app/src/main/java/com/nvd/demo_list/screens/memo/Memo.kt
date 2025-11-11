@@ -14,5 +14,7 @@ data class Memo(
     @SerializedName("isCompleted")
     val isCompleted: Boolean = false,
     @SerializedName("dueDate")
-    val dueDate: Date? = null
+    val dueDate: Date? = null,
+    @SerializedName("imageUris")
+    val imageUris: List<String> = emptyList()
 )

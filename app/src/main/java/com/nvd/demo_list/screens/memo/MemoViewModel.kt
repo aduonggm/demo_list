@@ -31,9 +31,9 @@ class MemoViewModel(private val context: Context) : ViewModel() {
         repository.saveMemos(_memos)
     }
 
-    fun addMemo(content: String, dueDate: Date? = null) {
+    fun addMemo(content: String, dueDate: Date? = null, imageUris: List<String> = emptyList()) {
         if (content.isNotBlank()) {
-            val newMemo = Memo(content = content.trim(), dueDate = dueDate)
+            val newMemo = Memo(content = content.trim(), dueDate = dueDate, imageUris = imageUris)
             _memos = _memos + newMemo
             saveMemos()
         }
@@ -52,11 +52,15 @@ class MemoViewModel(private val context: Context) : ViewModel() {
         }
     }
     
-    fun updateMemoWithDate(memo: Memo, newContent: String, dueDate: Date?) {
+    fun updateMemoWithDate(memo: Memo, newContent: String, dueDate: Date?, imageUris: List<String>? = null) {
         if (newContent.isNotBlank()) {
             _memos = _memos.map { 
                 if (it.id == memo.id) {
-                    it.copy(content = newContent.trim(), dueDate = dueDate)
+                    it.copy(
+                        content = newContent.trim(), 
+                        dueDate = dueDate,
+                        imageUris = imageUris ?: it.imageUris
+                    )
                 } else {
                     it
                 }
