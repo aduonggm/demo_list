@@ -18,10 +18,13 @@ import com.nvd.demo_list.screens.Option2PdfScreen
 import com.nvd.demo_list.screens.memo.AddMemoScreen
 import com.nvd.demo_list.screens.memo.MemoScreen
 import com.nvd.demo_list.screens.memo.MemoViewModel
+import com.nvd.demo_list.screens.splash.SplashScreen
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 
 sealed class Screen(val route: String) {
+    object Splash : Screen("splash")
+    object Main : Screen("main")
     object NewsFeedList : Screen("news_feed_list")
     object Option2 : Screen("option_2")
     object Option2Image : Screen("option_2_image")
@@ -38,8 +41,27 @@ fun AppNavigation() {
     SharedTransitionLayout {
         NavHost(
             navController = navController,
-            startDestination = "splash"
+            startDestination = Screen.Splash.route
         ) {
+            composable(Screen.Splash.route) {
+                SplashScreen(
+                    onNavigateToMain = {
+                        navController.navigate(Screen.Main.route) {
+                            // Xóa splash khỏi back stack để không quay lại
+                            popUpTo(Screen.Splash.route) {
+                                inclusive = true
+                            }
+                        }
+                    }
+                )
+            }
+
+            composable(Screen.Main.route) {
+                MainScreen {
+                    navController.navigate(it)
+                }
+            }
+
             composable(Screen.NewsFeedList.route) {
                 NewsFeedListScreen(
                     navController = navController,
@@ -49,14 +71,6 @@ fun AppNavigation() {
                         navController.navigate("details/$it")
                     }
                 )
-            }
-
-            composable("splash"){
-//                Tutorial5_6Screen2()
-//                ParentScreen()
-                MainScreen {
-                    navController.navigate(it)
-                }
             }
 
 
